@@ -105,6 +105,14 @@ const ProgramDetails = () => {
   const [paidBeneficiaries, setPaidBeneficiaries] = useState(new Set());
   const [receiptData, setReceiptData] = useState({});
   const [showHealthScoreBreakdown, setShowHealthScoreBreakdown] = useState(false);
+  
+  // Payout date state
+  const [showPayoutDateModal, setShowPayoutDateModal] = useState(false);
+  const [payoutDateForm, setPayoutDateForm] = useState({
+    date: '',
+    time: ''
+  });
+  const [payoutDateLoading, setPayoutDateLoading] = useState(false);
 
   // Form state
   const [form, setForm] = useState({
@@ -1234,6 +1242,86 @@ const ProgramDetails = () => {
     }
   };
 
+  // Handle opening payout date modal
+  const handleOpenPayoutDateModal = () => {
+    if (payoutDate) {
+      const payout = new Date(payoutDate);
+      const dateStr = payout.toISOString().split('T')[0];
+      const timeStr = payout.toTimeString().slice(0, 5);
+      setPayoutDateForm({
+        date: dateStr,
+        time: timeStr
+      });
+    } else {
+      setPayoutDateForm({
+        date: '',
+        time: ''
+      });
+    }
+    setShowPayoutDateModal(true);
+  };
+
+  // Handle updating payout date
+  const handleUpdatePayoutDate = async (e) => {
+    e.preventDefault();
+    setPayoutDateLoading(true);
+    
+    try {
+      await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+      
+      if (!payoutDateForm.date || !payoutDateForm.time) {
+        setToast({
+          type: 'error',
+          message: 'Please provide both date and time'
+        });
+        setPayoutDateLoading(false);
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+
+      // Combine date and time into ISO string
+      const payoutDateTime = new Date(`${payoutDateForm.date}T${payoutDateForm.time}`).toISOString();
+      
+      const programUpdateData = {
+        name: program.name || program.name,
+        description: program.description || '',
+        start_date: program.start_date || program.startDate || '',
+        end_date: program.end_date || program.endDate || '',
+        status: program.status || '',
+        beneficiary_type: program.beneficiary_type || program.beneficiaryType || '',
+        assistance_type: program.assistance_type || program.assistanceType || '',
+        amount: program.amount || '',
+        max_beneficiaries: program.max_beneficiaries || program.maxBeneficiaries || '',
+        payout_date: payoutDateTime,
+      };
+      
+      await axiosInstance.put(`/admin/programs/${id}`, programUpdateData);
+      
+      // Refresh program data
+      const programs = await fetchPrograms();
+      const updatedProgram = programs.find((p) => String(p.id) === String(id));
+      if (updatedProgram) {
+        setProgram(updatedProgram);
+      }
+      
+      setToast({
+        type: 'success',
+        message: 'Payout date and time updated successfully!'
+      });
+      setShowPayoutDateModal(false);
+      setPayoutDateForm({ date: '', time: '' });
+    } catch (err) {
+      console.error('Failed to update payout date:', err);
+      setToast({
+        type: 'error',
+        message: err.response?.data?.message || 'Failed to update payout date and time'
+      });
+    } finally {
+      setPayoutDateLoading(false);
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
   return (
     <>
       <Navbar />
@@ -1912,30 +2000,60 @@ const ProgramDetails = () => {
                     <span className="font-medium text-slate-600">Program Period:</span>
                     <span>{cropDate(program.start_date || program.startDate)} - {cropDate(program.end_date || program.endDate)}</span>
                   </div>
-                  {payoutDate && (
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span className="font-medium text-slate-600">Payout Date & Time:</span>
-                      <span className="text-emerald-600 font-semibold">
-                        {(() => {
-                          const payout = new Date(payoutDate);
-                          const dateStr = payout.toLocaleDateString('en-US', { 
-                            year: 'numeric', 
-                            month: 'long', 
-                            day: 'numeric' 
-                          });
-                          const timeStr = payout.toLocaleTimeString('en-US', { 
-                            hour: '2-digit', 
-                            minute: '2-digit',
-                            hour12: true 
-                          });
-                          return `${dateStr} at ${timeStr}`;
-                        })()}
-                      </span>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {payoutDate ? (
+                      <>
+                        <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium text-slate-600">Payout Date & Time:</span>
+                        <span className="text-emerald-600 font-semibold">
+                          {(() => {
+                            const payout = new Date(payoutDate);
+                            const dateStr = payout.toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            });
+                            const timeStr = payout.toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true 
+                            });
+                            return `${dateStr} at ${timeStr}`;
+                          })()}
+                        </span>
+                        <button
+                          onClick={handleOpenPayoutDateModal}
+                          className="ml-2 px-3 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg transition-colors duration-200 flex items-center gap-1"
+                          title="Edit payout date and time"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                          Edit
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="font-medium text-slate-600">Payout Date & Time:</span>
+                        <span className="text-slate-400 italic">Not set</span>
+                        <button
+                          onClick={handleOpenPayoutDateModal}
+                          className="ml-2 px-3 py-1.5 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg transition-colors duration-200 flex items-center gap-1"
+                          title="Set payout date and time"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Set Date & Time
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3669,6 +3787,138 @@ const ProgramDetails = () => {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payout Date & Time Modal */}
+      {showPayoutDateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="bg-gradient-to-br from-green-50 via-white to-emerald-50 rounded-3xl shadow-2xl border border-green-100 w-full max-w-md relative">
+            <div className="bg-gradient-to-r from-emerald-500 to-green-600 rounded-t-3xl p-6">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  {payoutDate ? 'Edit Payout Date & Time' : 'Set Payout Date & Time'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setShowPayoutDateModal(false);
+                    setPayoutDateForm({ date: '', time: '' });
+                  }}
+                  className="text-white hover:text-red-200 transition-colors duration-200 text-2xl font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleUpdatePayoutDate} className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm text-blue-800">
+                      Set the date and time when benefits will be distributed to beneficiaries. This helps track the payout phase of the program.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Payout Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={payoutDateForm.date}
+                      onChange={(e) => setPayoutDateForm(f => ({ ...f, date: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                      min={new Date().toISOString().split('T')[0]}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Payout Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={payoutDateForm.time}
+                      onChange={(e) => setPayoutDateForm(f => ({ ...f, time: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+
+                  {payoutDateForm.date && payoutDateForm.time && (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+                      <p className="text-sm font-medium text-emerald-800 mb-1">Preview:</p>
+                      <p className="text-emerald-700 font-semibold">
+                        {(() => {
+                          try {
+                            const date = new Date(`${payoutDateForm.date}T${payoutDateForm.time}`);
+                            const dateStr = date.toLocaleDateString('en-US', { 
+                              year: 'numeric', 
+                              month: 'long', 
+                              day: 'numeric' 
+                            });
+                            const timeStr = date.toLocaleTimeString('en-US', { 
+                              hour: '2-digit', 
+                              minute: '2-digit',
+                              hour12: true 
+                            });
+                            return `${dateStr} at ${timeStr}`;
+                          } catch (e) {
+                            return 'Invalid date/time';
+                          }
+                        })()}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPayoutDateModal(false);
+                      setPayoutDateForm({ date: '', time: '' });
+                    }}
+                    className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-all duration-300"
+                    disabled={payoutDateLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={payoutDateLoading || !payoutDateForm.date || !payoutDateForm.time}
+                    className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white rounded-xl font-medium transition-all duration-300 transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none flex items-center gap-2"
+                  >
+                    {payoutDateLoading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        {payoutDate ? 'Update' : 'Set'} Payout Date & Time
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

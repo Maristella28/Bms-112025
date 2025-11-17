@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon } from '@heroicons/react/24/solid';
+import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon, BellIcon } from '@heroicons/react/24/solid';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import axios from '../../../../utils/axiosConfig';
@@ -3811,29 +3811,43 @@ const SocialServices = () => {
                         // Check if payout date has changed for email notification
                         let payoutDateChanged = false;
                         let newPayoutDate = null;
+                        let response;
                         
                         if (editingProgram && editingProgram.id) {
                           const originalPayoutDate = editingProgram.payout_date || editingProgram.payoutDate;
                           newPayoutDate = programForm.payoutDate;
                           payoutDateChanged = originalPayoutDate !== newPayoutDate;
                           
-                          console.log('Payout Date Change Debug:', {
-                            originalPayoutDate,
-                            newPayoutDate,
-                            payoutDateChanged,
-                            hasNewPayoutDate: !!newPayoutDate
-                          });
+                          // Update program - use response to update state immediately
+                          response = await axios.put(`/admin/programs/${editingProgram.id}`, data);
                           
-                          await axios.put(`/admin/programs/${editingProgram.id}`, data);
+                          // Update the program in state immediately using response data
+                          if (response.data) {
+                            setPrograms(prevPrograms => 
+                              prevPrograms.map(p => 
+                                p.id === editingProgram.id 
+                                  ? { ...p, ...response.data, ...data }
+                                  : p
+                              )
+                            );
+                          } else {
+                            // Fallback: update from form data
+                            setPrograms(prevPrograms => 
+                              prevPrograms.map(p => 
+                                p.id === editingProgram.id 
+                                  ? { ...p, ...data }
+                                  : p
+                              )
+                            );
+                          }
                           
-                          // Send email notification if payout date changed
+                          // Send email notification in background (non-blocking)
                           if (payoutDateChanged && newPayoutDate) {
-                            console.log('Sending payout change notification...');
-                            try {
-                              const notificationResponse = await axios.post(`/api/admin/programs/${editingProgram.id}/notify-payout-change`, {
-                                new_payout_date: newPayoutDate,
-                                program_name: programForm.name
-                              });
+                            // Fire and forget - don't wait for response
+                            axios.post(`/api/admin/programs/${editingProgram.id}/notify-payout-change`, {
+                              new_payout_date: newPayoutDate,
+                              program_name: programForm.name
+                            }).then(notificationResponse => {
                               console.log('Notification sent successfully:', notificationResponse.data);
                               
                               // Show success modal with notification details
@@ -3845,30 +3859,35 @@ const SocialServices = () => {
                                 newPayoutDate: newPayoutDate
                               });
                               setShowNotificationSuccessModal(true);
-                            } catch (emailError) {
+                            }).catch(emailError => {
                               console.error('Error sending payout change notification:', emailError);
                               // Don't fail the entire operation if email fails
-                            }
-                          } else {
-                            console.log('No payout date change detected or no new payout date');
+                            });
                           }
                         } else {
-                          await axios.post('/admin/programs', data);
+                          // Create new program
+                          response = await axios.post('/admin/programs', data);
+                          
+                          // Add new program to state immediately
+                          if (response.data) {
+                            setPrograms(prevPrograms => [...prevPrograms, response.data]);
+                          }
                         }
                         
+                        // Show success and close modal immediately
                         const successMessage = editingProgram && editingProgram.id ? 'Program updated successfully!' : 'Program added successfully!';
-                        if (payoutDateChanged && newPayoutDate) {
-                          setProgramFormSuccess(successMessage + ' Email notifications sent to all beneficiaries.');
-                        } else {
-                          setProgramFormSuccess(successMessage);
-                        }
+                        setProgramFormSuccess(successMessage);
                         setShowProgramModal(false);
-                        setEditingProgram(null); // Reset editing program after successful save
+                        setEditingProgram(null);
                         setProgramForm({ name: '', description: '', startDate: '', endDate: '', status: '', beneficiaryType: '', assistanceType: '', amount: '', maxBeneficiaries: '', payoutDate: '' });
                         
-                        // Refresh programs list
-                        const updatedPrograms = await fetchPrograms();
-                        setPrograms(updatedPrograms);
+                        // Refresh programs list in background (non-blocking) to ensure data consistency
+                        fetchPrograms().then(updatedPrograms => {
+                          setPrograms(updatedPrograms);
+                        }).catch(err => {
+                          console.error('Error refreshing programs:', err);
+                          // Don't show error to user since save was successful
+                        });
                       } catch (err) {
                         console.error('Error saving program:', err);
                         setProgramFormError((editingProgram && editingProgram.id ? 'Failed to update program. ' : 'Failed to add program. ') + (err?.response?.data?.message || err?.message || ''));
