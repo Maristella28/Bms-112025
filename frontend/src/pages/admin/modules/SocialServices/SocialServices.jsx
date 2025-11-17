@@ -1218,8 +1218,9 @@ const SocialServices = () => {
     <>
       <Navbar />
       <Sidebar />
-      <main className="bg-gradient-to-br from-green-50 to-emerald-50 min-h-screen ml-0 lg:ml-64 pt-20 lg:pt-36 px-4 pb-16 font-sans">
-        <div className="w-full max-w-[98%] mx-auto space-y-8 px-2 lg:px-4">
+      <div className="fixed inset-0 bg-green-50 -z-10"></div>
+      <main className="bg-green-50 min-h-screen ml-0 lg:ml-64 px-4 pb-16 font-sans">
+        <div className="w-full max-w-[98%] mx-auto space-y-8 px-2 lg:px-4 pt-20 lg:pt-36">
           {/* Enhanced Header */}
           <div className="text-center space-y-4">
             <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full shadow-xl mb-4">

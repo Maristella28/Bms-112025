@@ -22,7 +22,7 @@ const SocialCards = ({
   console.log('Sample program in SocialCards:', programs[0]);
 
   return (
-    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full ${compactMode ? 'relative' : ''}`}>
+    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full ${compactMode ? 'relative overflow-visible' : ''}`}>
       {programs.map((program, index) => {
         // Get effective status (considers if all beneficiaries are paid)
         const effectiveStatus = getEffectiveProgramStatus ? getEffectiveProgramStatus(program) : program.status;
@@ -36,7 +36,7 @@ const SocialCards = ({
           key={program.id}
           className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:bg-white hover:border-green-200 animate-fade-in-up ${
             compactMode 
-              ? 'p-4 sm:p-5 overflow-visible' 
+              ? 'p-4 sm:p-5 overflow-visible mb-0' 
               : 'p-6 sm:p-7 hover:scale-[1.02] overflow-hidden'
           }`}
           style={{ animationDelay: `${index * 100}ms` }}
@@ -128,6 +128,12 @@ const SocialCards = ({
                   ? 'opacity-100 visible translate-y-0'
                   : 'opacity-0 invisible -translate-y-4 pointer-events-none'
               }`}
+              style={{
+                position: 'absolute',
+                willChange: 'opacity, transform',
+                maxHeight: 'calc(100vh - 200px)',
+                overflowY: 'auto'
+              }}
               onClick={(e) => e.stopPropagation()}
               onMouseEnter={() => setHoveredCardId(program.id)}
               onMouseLeave={() => setHoveredCardId(null)}

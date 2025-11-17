@@ -35,13 +35,13 @@ const DynamicLayout = () => {
   // Admin/Staff layout
   return (
     <AdminSidebarProvider>
-      <div className="flex h-screen bg-gray-100">
+      <div className="flex h-screen bg-green-50">
         {/* Sidebar with permissions but no hardcoded role */}
         <Sidebar permissions={permissions} />
         
         <div className="flex-1 flex flex-col">
           <Navbar />
-          <main className="flex-1 overflow-y-auto p-6 bg-white">
+          <main className="flex-1 overflow-y-auto p-6 bg-green-50">
             <Outlet />
           </main>
         </div>

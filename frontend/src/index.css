@@ -59,11 +59,29 @@
 /* Global mobile optimizations */
 @layer base {
   html {
-    @apply scroll-smooth;
+    @apply scroll-smooth bg-green-50;
+    background-color: #f0fdf4 !important;
+    min-height: 100%;
   }
   
   body {
-    @apply overflow-x-hidden;
+    @apply overflow-x-hidden bg-green-50;
+    background-color: #f0fdf4 !important;
+    min-height: 100vh;
+  }
+  
+  #root {
+    background-color: #f0fdf4;
+    min-height: 100vh;
+  }
+  
+  .app-container {
+    background-color: #f0fdf4 !important;
+    min-height: 100vh;
+  }
+  
+  .main-content {
+    background-color: #f0fdf4 !important;
   }
   
   /* Ensure all containers respect mobile boundaries */
