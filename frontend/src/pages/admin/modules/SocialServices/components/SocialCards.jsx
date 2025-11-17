@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { HeartIcon, TrashIcon, PencilIcon, EyeIcon, CalendarIcon, ChartBarIcon } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
 
@@ -15,18 +15,21 @@ const SocialCards = ({
   compactMode = false
 }) => {
   const navigate = useNavigate();
+  const [hoveredCardId, setHoveredCardId] = useState(null);
   
   // Debug logging
   console.log('SocialCards received programs:', programs);
   console.log('Sample program in SocialCards:', programs[0]);
 
   return (
-    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full overflow-hidden`}>
+    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full`}>
       {programs.map((program, index) => {
         // Get effective status (considers if all beneficiaries are paid)
         const effectiveStatus = getEffectiveProgramStatus ? getEffectiveProgramStatus(program) : program.status;
         const isComplete = effectiveStatus === 'complete' && areAllBeneficiariesPaid && areAllBeneficiariesPaid(program.id);
         const displayStatus = isComplete ? 'Complete' : (effectiveStatus ? effectiveStatus.charAt(0).toUpperCase() + effectiveStatus.slice(1) : 'Draft');
+        
+        const isHovered = hoveredCardId === program.id;
         
         return (
         <div
@@ -38,6 +41,8 @@ const SocialCards = ({
           }`}
           style={{ animationDelay: `${index * 100}ms` }}
           onClick={() => navigate(`/admin/social-services/program/${program.id}`)}
+          onMouseEnter={() => compactMode && setHoveredCardId(program.id)}
+          onMouseLeave={() => compactMode && setHoveredCardId(null)}
         >
           {/* Glassmorphism Background Effect */}
           <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-white/5 rounded-3xl"></div>
@@ -118,10 +123,12 @@ const SocialCards = ({
           {/* Expandable Content Wrapper - Hidden in compact mode, shown on hover */}
           <div className={`relative z-10 transition-all duration-500 ease-in-out ${
             compactMode 
-              ? 'grid grid-rows-[0fr] opacity-0 group-hover:grid-rows-[1fr] group-hover:opacity-100' 
-              : 'grid grid-rows-[1fr] opacity-100'
+              ? isHovered
+                ? 'max-h-[800px] opacity-100 mb-0'
+                : 'max-h-0 opacity-0 overflow-hidden'
+              : 'max-h-[800px] opacity-100'
           }`}>
-            <div className="overflow-hidden">
+            <div>
               {/* Description Section - Enhanced */}
               <div className="mb-5">
                 <p 
