@@ -22,7 +22,7 @@ const SocialCards = ({
   console.log('Sample program in SocialCards:', programs[0]);
 
   return (
-    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full`}>
+    <div className={`grid grid-cols-1 ${compactMode ? 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'} gap-6 sm:gap-8 w-full max-w-full ${compactMode ? 'relative' : ''}`}>
       {programs.map((program, index) => {
         // Get effective status (considers if all beneficiaries are paid)
         const effectiveStatus = getEffectiveProgramStatus ? getEffectiveProgramStatus(program) : program.status;
@@ -34,10 +34,10 @@ const SocialCards = ({
         return (
         <div
           key={program.id}
-          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:bg-white hover:border-green-200 animate-fade-in-up overflow-hidden ${
+          className={`group relative bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-gray-100 cursor-pointer transition-all duration-500 hover:shadow-2xl hover:bg-white hover:border-green-200 animate-fade-in-up ${
             compactMode 
-              ? 'p-4 sm:p-5 hover:scale-[1.03] hover:p-6 sm:hover:p-7' 
-              : 'p-6 sm:p-7 hover:scale-[1.02]'
+              ? 'p-4 sm:p-5 overflow-visible' 
+              : 'p-6 sm:p-7 hover:scale-[1.02] overflow-hidden'
           }`}
           style={{ animationDelay: `${index * 100}ms` }}
           onClick={() => navigate(`/admin/social-services/program/${program.id}`)}
@@ -120,20 +120,101 @@ const SocialCards = ({
             </div>
           </div>
           
-          {/* Expandable Content Wrapper - Hidden in compact mode, shown on hover */}
-          <div className={`relative z-10 transition-all duration-500 ease-in-out ${
-            compactMode 
-              ? isHovered
-                ? 'max-h-[800px] opacity-100 mb-0'
-                : 'max-h-0 opacity-0 overflow-hidden'
-              : 'max-h-[800px] opacity-100'
-          }`}>
-            <div>
+          {/* Expandable Content Wrapper - Absolute positioned overlay in compact mode to prevent layout shifts */}
+          {compactMode ? (
+            <div 
+              className={`absolute left-0 right-0 top-full mt-2 z-[100] bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 transition-all duration-500 ease-in-out min-w-[280px] ${
+                isHovered
+                  ? 'opacity-100 visible translate-y-0'
+                  : 'opacity-0 invisible -translate-y-4 pointer-events-none'
+              }`}
+              onClick={(e) => e.stopPropagation()}
+              onMouseEnter={() => setHoveredCardId(program.id)}
+              onMouseLeave={() => setHoveredCardId(null)}
+            >
+              {/* Description Section - Enhanced */}
+              <div className="mb-5">
+                <p 
+                  className="text-gray-600 text-sm sm:text-base leading-relaxed"
+                  title={program.description}
+                >
+                  {program.description || 'No description available.'}
+                </p>
+              </div>
+              
+              {/* Enhanced Details Section - Improved Layout */}
+              <div className="space-y-3 mb-6">
+                {/* Duration with Tooltip Effect */}
+                <div className="group/detail flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl hover:from-blue-100 hover:to-indigo-100 transition-all duration-300 border border-blue-100/50">
+                  <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-blue-200 flex items-center justify-center shadow-sm">
+                      <CalendarIcon className="w-5 h-5 text-blue-700" />
+                    </div>
+                    <span className="text-gray-700 font-semibold text-sm">Duration</span>
+                  </div>
+                  <span className="text-gray-900 font-bold text-sm group-hover/detail:text-blue-700 transition-colors duration-300 text-right min-w-0 flex-shrink-0 ml-3 break-words">
+                    {formatDateRange(program.start_date, program.end_date)}
+                  </span>
+                </div>
+                
+                {/* Budget with Tooltip Effect */}
+                <div className="group/detail flex items-center justify-between p-3.5 bg-gradient-to-r from-green-50/80 to-emerald-50/80 rounded-xl hover:from-green-100 hover:to-emerald-100 transition-all duration-300 border border-green-100/50">
+                  <div className="flex items-center gap-3 min-w-0 flex-shrink-0">
+                    <div className="w-9 h-9 rounded-lg bg-green-200 flex items-center justify-center shadow-sm">
+                      <ChartBarIcon className="w-5 h-5 text-green-700" />
+                    </div>
+                    <span className="text-gray-700 font-semibold text-sm">Budget</span>
+                  </div>
+                  <span className="text-green-700 font-bold text-base group-hover/detail:text-green-800 transition-colors duration-300 text-right min-w-0 flex-shrink-0 ml-3">
+                    {formatCurrency(program.amount)}
+                  </span>
+                </div>
+              </div>
+              
+              {/* Enhanced Action Buttons - Improved Spacing */}
+              <div className="space-y-3 pt-2 border-t border-gray-100">
+                {/* Primary Action - View Details */}
+                <button
+                  className="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:from-blue-700 hover:via-indigo-700 hover:to-purple-700 text-white px-5 py-3.5 rounded-2xl text-sm sm:text-base font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-blue-500/30 group/btn"
+                  onClick={e => { e.stopPropagation(); navigate(`/admin/social-services/program/${program.id}`); }}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <EyeIcon className="w-5 h-5 group-hover/btn:scale-110 transition-transform duration-300" />
+                    <span>View Details</span>
+                  </div>
+                </button>
+                
+                {/* Secondary Actions */}
+                <div className="flex gap-3">
+                  <button
+                    className="flex-1 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-orange-500/30 group/btn"
+                    onClick={e => { e.stopPropagation(); handleEditProgramClick(program); }}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <PencilIcon className="w-4 h-4 group-hover/btn:scale-110 transition-transform duration-300" />
+                      <span>Edit</span>
+                    </div>
+                  </button>
+                  
+                  <button
+                    className="flex-1 bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white px-4 py-3 rounded-xl text-sm font-semibold shadow-md hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02] focus:outline-none focus:ring-4 focus:ring-red-500/30 group/btn"
+                    onClick={e => { e.stopPropagation(); handleDeleteProgram(program.id); }}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <TrashIcon className="w-4 h-4 group-hover/btn:scale-110 transition-transform duration-300" />
+                      <span>Delete</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="relative z-10">
               {/* Description Section - Enhanced */}
               <div className="mb-5">
                 <p 
                   className="text-gray-600 group-hover:text-gray-700 transition-colors duration-300 text-sm sm:text-base leading-relaxed"
-                  style={compactMode ? {} : {
+                  style={{
                     display: '-webkit-box',
                     WebkitLineClamp: 3,
                     WebkitBoxOrient: 'vertical',
@@ -212,7 +293,7 @@ const SocialCards = ({
                 </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         );
       })}
