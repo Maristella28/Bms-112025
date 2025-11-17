@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import Navbares from '../../components/Navbares';
 import Sidebares from '../../components/Sidebares';
 import { useAuth } from '../../contexts/AuthContext';
@@ -65,6 +65,7 @@ const formatDate = (dateString) => {
 const Profile = () => {
   console.log('🔵 Profile: Component is rendering');
   const navigate = useNavigate();
+  const location = useLocation();
   const { forceRefresh, user } = useAuth();
   console.log('🔵 Profile: user object:', user);
   console.log('🔵 Profile: user.profile:', user?.profile);
@@ -174,15 +175,19 @@ const Profile = () => {
   }, [isFullyCompleted, loading, showCongrats]);
 
   // Check if user needs to upload profile image and show reminder
+  // Only show on the profile page, not on verification/document upload pages
   useEffect(() => {
-    if (form.verification_status === 'approved' && !loading && !form.current_photo) {
+    // Only show modal if we're on the profile page
+    const isOnProfilePage = location.pathname === '/residents/profile';
+    
+    if (isOnProfilePage && form.verification_status === 'approved' && !loading && !form.current_photo) {
       const hasShownImageReminder = sessionStorage.getItem('imageReminderShown');
       if (!hasShownImageReminder) {
         setShowImageReminder(true);
         sessionStorage.setItem('imageReminderShown', 'true');
       }
     }
-  }, [form.verification_status, form.current_photo, loading]);
+  }, [form.verification_status, form.current_photo, loading, location.pathname]);
 
   const handleGoDashboard = () => {
     setShowCongrats(false);
