@@ -40,7 +40,8 @@ import {
   BuildingOfficeIcon,
   HomeIcon,
   DocumentCheckIcon,
-  GiftIcon
+  GiftIcon,
+  ChartBarIcon
 } from "@heroicons/react/24/solid";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useTestData, getTestDocumentRecords } from '../../testData/documentRecordsTestData';
@@ -211,7 +212,7 @@ const DocumentsRecords = () => {
   const [feedback, setFeedback] = useState(null);
   const [generatingPdf, setGeneratingPdf] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false); // Disabled by default to prevent constant refreshing
   const [refreshInterval, setRefreshInterval] = useState(30000); // 30 seconds
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -252,6 +253,10 @@ const DocumentsRecords = () => {
   // Payment confirmation modal state
   const [showPaymentConfirmModal, setShowPaymentConfirmModal] = useState(false);
   const [paymentConfirmRecord, setPaymentConfirmRecord] = useState(null);
+
+  // Analytics dashboard state - collapsed by default for better UX
+  const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false);
+  const [analyticsViewMode, setAnalyticsViewMode] = useState('simple'); // 'simple' or 'detailed'
 
   const currentYear = new Date().getFullYear();
   const [selectedPeriod, setSelectedPeriod] = useState('all');
@@ -2496,16 +2501,58 @@ const DocumentsRecords = () => {
             />
           </div>
 
-          {/* Enhanced Analytics Dashboard */}
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-8">
+          {/* Analytics Dashboard Toggle Button */}
+          <div className="mb-4 flex justify-center">
+            <button
+              onClick={() => setShowAnalyticsDashboard(!showAnalyticsDashboard)}
+              className="group relative bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 text-sm font-semibold transition-all duration-300 transform hover:scale-105"
+            >
+              <ChartBarIcon className={`w-5 h-5 transition-transform duration-300 ${showAnalyticsDashboard ? 'rotate-180' : ''}`} />
+              <span>{showAnalyticsDashboard ? 'Hide Analytics Dashboard' : 'Show Analytics Dashboard'}</span>
+              {!showAnalyticsDashboard && (
+                <span className="ml-2 bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                  {currentFilteredRecords.length} records
+                </span>
+              )}
+            </button>
+          </div>
+
+          {/* Enhanced Analytics Dashboard - Collapsible */}
+          {showAnalyticsDashboard && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-8 animate-fade-in">
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
               <div className="flex-1 min-w-0">
-                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <DocumentTextIcon className="w-6 h-6 text-white" />
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center flex-shrink-0">
+                      <DocumentTextIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <span className="truncate">Document Analytics Dashboard</span>
+                  </h3>
+                  {/* View Mode Toggle */}
+                  <div className="flex items-center gap-2 bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setAnalyticsViewMode('simple')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                        analyticsViewMode === 'simple'
+                          ? 'bg-white text-green-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Simple
+                    </button>
+                    <button
+                      onClick={() => setAnalyticsViewMode('detailed')}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
+                        analyticsViewMode === 'detailed'
+                          ? 'bg-white text-green-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      Detailed
+                    </button>
                   </div>
-                  <span className="truncate">Document Analytics Dashboard</span>
-                </h3>
+                </div>
                 <p className="text-gray-600 mt-2 text-base">Comprehensive insights into document request patterns and performance metrics</p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <span className="text-sm text-gray-500">Filtered by:</span>
@@ -2707,7 +2754,8 @@ const DocumentsRecords = () => {
               </div>
             </div>
 
-            {/* Document Type Distribution */}
+            {/* Document Type Distribution - Only in Detailed View */}
+            {analyticsViewMode === 'detailed' && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
               <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -2774,8 +2822,10 @@ const DocumentsRecords = () => {
                 </div>
               </div>
             </div>
+            )}
 
-            {/* Smart Suggestions */}
+            {/* Smart Suggestions - Only in Detailed View */}
+            {analyticsViewMode === 'detailed' && (
             <div className="bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-bold text-indigo-800 flex items-center gap-2">
@@ -2835,8 +2885,10 @@ const DocumentsRecords = () => {
                 )}
               </div>
             </div>
+            )}
 
-            {/* Chart Section */}
+            {/* Chart Section - Only in Detailed View */}
+            {analyticsViewMode === 'detailed' && (
             <div className="bg-gradient-to-r from-slate-50 to-blue-50 border border-slate-200 rounded-xl p-6 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-bold text-slate-800">Request Trends</h4>
@@ -2882,8 +2934,10 @@ const DocumentsRecords = () => {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+            )}
 
-            {/* Financial Overview */}
+            {/* Financial Overview - Only in Detailed View */}
+            {analyticsViewMode === 'detailed' && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
               <div className="bg-gradient-to-br from-emerald-50 to-green-50 border border-emerald-200 rounded-xl p-6">
                 <div className="flex items-center justify-between">
@@ -2937,8 +2991,10 @@ const DocumentsRecords = () => {
                 </div>
               </div>
             </div>
+            )}
 
-            {/* Most Requested Documents */}
+            {/* Most Requested Documents - Only in Detailed View */}
+            {analyticsViewMode === 'detailed' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -2986,7 +3042,10 @@ const DocumentsRecords = () => {
                 </div>
               </div>
             </div>
+            )}
+
           </div>
+          )}
 
           {/* Document Type Filter Cards */}
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-8">
