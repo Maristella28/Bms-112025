@@ -1837,7 +1837,6 @@ const ResidentsRecords = () => {
       console.log('Disable resident response:', response.data);
       showInfo('Resident disabled successfully.', 'Disabled', 'success');
       fetchResidents();
-      setShowRecentlyDeleted(true);
     } catch (err) {
       console.error('Failed to disable resident:', err);
       console.error('Error response:', err.response?.data);
