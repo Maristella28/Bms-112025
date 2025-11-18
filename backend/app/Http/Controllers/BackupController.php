@@ -377,6 +377,51 @@ class BackupController extends Controller
     }
 
     /**
+     * Download a backup file
+     */
+    public function downloadBackup(Request $request, $id)
+    {
+        try {
+            $backupDir = storage_path('backups');
+            $files = glob($backupDir . '/*');
+            
+            foreach ($files as $file) {
+                if (md5($file) === $id && is_file($file) && is_readable($file)) {
+                    $filename = basename($file);
+                    
+                    // Log activity (wrap in try-catch to prevent failure if logging fails)
+                    try {
+                        ActivityLogService::logAdminAction('backup_downloaded', 'Backup file downloaded: ' . $filename, $request);
+                    } catch (\Exception $logError) {
+                        \Log::warning('Failed to log backup download: ' . $logError->getMessage());
+                    }
+                    
+                    return response()->download($file, $filename, [
+                        'Content-Type' => $this->getMimeType($file),
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Backup file not found'
+            ], 404);
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to download backup', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to download backup: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Delete a backup file
      */
     public function deleteBackup(Request $request, $id)
@@ -416,6 +461,29 @@ class BackupController extends Controller
                 'message' => 'Failed to delete backup: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get MIME type for file
+     */
+    private function getMimeType($file)
+    {
+        $extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+        
+        $mimeTypes = [
+            'sql' => 'application/sql',
+            'gz' => 'application/gzip',
+            'zip' => 'application/zip',
+            'tar' => 'application/x-tar',
+            'tar.gz' => 'application/gzip',
+        ];
+        
+        // Handle .sql.gz files
+        if (preg_match('/\.sql\.gz$/', $file)) {
+            return 'application/gzip';
+        }
+        
+        return $mimeTypes[$extension] ?? 'application/octet-stream';
     }
 
     /**

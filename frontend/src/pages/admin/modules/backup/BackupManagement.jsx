@@ -86,6 +86,31 @@ const BackupManagement = () => {
     }
   };
 
+  // Download backup
+  const handleDownloadBackup = async (backupId, filename) => {
+    try {
+      const response = await axiosInstance.get(`/admin/backup/${backupId}/download`, {
+        responseType: 'blob', // Important: set response type to blob for file downloads
+      });
+
+      // Create a blob URL and trigger download
+      const blob = new Blob([response.data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      
+      toast.success('Backup downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading backup:', error);
+      toast.error(error.response?.data?.message || 'Failed to download backup');
+    }
+  };
+
   // Delete backup
   const handleDeleteBackup = async (backupId, filename) => {
     if (!window.confirm(`Are you sure you want to delete backup: ${filename}?`)) {
@@ -391,24 +416,34 @@ const BackupManagement = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
-                          <button
-                            onClick={() => handleDeleteBackup(backup.id, backup.filename)}
-                            disabled={deletingId === backup.id}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-150 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Delete backup"
-                          >
-                            {deletingId === backup.id ? (
-                              <>
-                                <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              <>
-                                <TrashIcon className="w-4 h-4" />
-                                Delete
-                              </>
-                            )}
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => handleDownloadBackup(backup.id, backup.filename)}
+                              className="inline-flex items-center gap-2 px-4 py-2 text-green-600 hover:text-green-700 hover:bg-green-50 rounded-lg transition-all duration-150 font-medium text-sm"
+                              title="Download backup"
+                            >
+                              <ArrowDownTrayIcon className="w-4 h-4" />
+                              Download
+                            </button>
+                            <button
+                              onClick={() => handleDeleteBackup(backup.id, backup.filename)}
+                              disabled={deletingId === backup.id}
+                              className="inline-flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-150 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete backup"
+                            >
+                              {deletingId === backup.id ? (
+                                <>
+                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                  Deleting...
+                                </>
+                              ) : (
+                                <>
+                                  <TrashIcon className="w-4 h-4" />
+                                  Delete
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
