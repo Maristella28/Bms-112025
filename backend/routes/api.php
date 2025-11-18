@@ -254,6 +254,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'staff', 'sanitize'])->group
     // ============================================
     // 💾 BACKUP MODULE (Admin & Staff with permissions)
     // ============================================
+    Route::get('/backups/test', [BackupController::class, 'test']);
     Route::get('/backups', [BackupController::class, 'listBackups']);
     Route::get('/backups/statistics', [BackupController::class, 'getStatistics']);
 });
