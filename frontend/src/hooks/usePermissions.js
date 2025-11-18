@@ -14,16 +14,17 @@ import {
 export const usePermissions = () => {
   const { user } = useAuth();
   
-  // Get staff permissions from user object - prioritize mapped permissions
-  let staffPermissions = user?.permissions || user?.module_permissions || {};
+  // Get staff permissions from user object
+  // Prioritize module_permissions (raw backend format) over permissions (mapped format)
+  // This ensures we use the actual backend permissions, not fallback values
+  let staffPermissions = user?.module_permissions || user?.permissions || {};
   
   // Fallback for staff users if permissions are not properly loaded
+  // Only grant minimal access - don't grant unauthorized permissions
   if (user?.role === 'staff' && (!staffPermissions || Object.keys(staffPermissions).length <= 1)) {
-    console.log('usePermissions - Using fallback permissions for staff');
+    console.log('usePermissions - Using minimal fallback permissions for staff (dashboard only)');
     staffPermissions = {
-      dashboard: true,
-      residents: true,
-      social_services: true
+      dashboard: true
     };
   }
   

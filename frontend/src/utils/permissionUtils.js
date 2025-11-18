@@ -11,7 +11,32 @@
 export const hasModuleAccess = (staffPermissions, moduleKey) => {
   if (!staffPermissions || !moduleKey) return false;
   
-  const modulePermission = staffPermissions[moduleKey];
+  // Map frontend module keys to backend keys
+  const backendKeyMap = {
+    'dashboard': 'dashboard',
+    'residents': 'residentsRecords',
+    'documents': 'documentsRecords',
+    'household': 'householdRecords',
+    'blotter': 'blotterRecords',
+    'treasurer': 'financialTracking',
+    'officials': 'barangayOfficials',
+    'staff': 'staffManagement',
+    'communication': 'communicationAnnouncement',
+    'projects': 'projectManagement',
+    'social_services': 'socialServices',
+    'command_center': 'disasterEmergency',
+    'inventory': 'inventoryAssets',
+    'logs': 'activityLogs'
+  };
+  
+  // Try frontend key first
+  let modulePermission = staffPermissions[moduleKey];
+  const backendKey = backendKeyMap[moduleKey];
+  
+  // If not found, try backend key
+  if (modulePermission === undefined && backendKey) {
+    modulePermission = staffPermissions[backendKey];
+  }
   
   // Handle new permission structure with access property
   if (typeof modulePermission === 'object' && modulePermission !== null) {

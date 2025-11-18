@@ -104,11 +104,46 @@ const AuthProvider = ({ children }) => {
           };
 
           // Set permissions based on the backend response using the mapping
+          // Backend returns flat structure (e.g., residentsRecords: true)
+          // Frontend needs nested structure (e.g., residents: { access: true, sub_permissions: {...} })
           baseUser.permissions = {};
+          baseUser.module_permissions = {}; // Store raw backend permissions
+          
           Object.entries(permissionMapping).forEach(([backendKey, frontendKey]) => {
             const hasPermission = Boolean(staffPermissions[backendKey]);
             console.log(`Mapping ${backendKey} -> ${frontendKey}: ${hasPermission}`);
+            
+            // Store in both formats for compatibility
             baseUser.permissions[frontendKey] = hasPermission;
+            baseUser.module_permissions[backendKey] = hasPermission;
+            
+            // For residents module, check for nested sub-permissions
+            if (backendKey === 'residentsRecords' && hasPermission) {
+              // Check for nested permissions like residentsRecords_main_records_edit
+              const mainRecordsAccess = Boolean(staffPermissions['residentsRecords_main_records']);
+              const mainRecordsEdit = Boolean(staffPermissions['residentsRecords_main_records_edit']);
+              const mainRecordsDisable = Boolean(staffPermissions['residentsRecords_main_records_disable']);
+              const mainRecordsView = Boolean(staffPermissions['residentsRecords_main_records_view']);
+              const verification = Boolean(staffPermissions['residentsRecords_verification']);
+              const disabled = Boolean(staffPermissions['residentsRecords_disabled_residents']);
+              
+              // Convert to nested structure
+              baseUser.permissions[frontendKey] = {
+                access: hasPermission,
+                sub_permissions: {
+                  main_records: {
+                    access: mainRecordsAccess,
+                    sub_permissions: {
+                      edit: mainRecordsEdit,
+                      disable: mainRecordsDisable,
+                      view: mainRecordsView
+                    }
+                  },
+                  verification: verification,
+                  disabled_residents: disabled
+                }
+              };
+            }
           });
           
           // Ensure all expected permissions are set (even if false)
@@ -130,24 +165,14 @@ const AuthProvider = ({ children }) => {
           console.log('Staff permissions set:', baseUser.permissions);
         } catch (err) {
           console.error('Error fetching staff permissions:', err);
-          // Fallback: Set permissions based on what we know from the database
+          // Fallback: Only grant dashboard access if permissions can't be fetched
           baseUser.permissions = {
-            dashboard: true,
-            residents: true,
-            documents: false,
-            household: false,
-            blotter: false,
-            treasurer: false,
-            officials: false,
-            staff: false,
-            communication: false,
-            social_services: true,
-            command_center: false,
-            projects: false,
-            inventory: false,
-            logs: false
+            dashboard: true
           };
-          console.log('Using fallback permissions:', baseUser.permissions);
+          baseUser.module_permissions = {
+            dashboard: true
+          };
+          console.log('Using minimal fallback permissions (dashboard only):', baseUser.permissions);
         }
       } else {
         console.log('User role not admin or staff, setting default permissions');
@@ -157,26 +182,17 @@ const AuthProvider = ({ children }) => {
       }
       
       // Force staff permission loading if user has staff role but permissions weren't loaded
+      // Only set minimal permissions - don't grant unauthorized access
       if (baseUser.role === 'staff' && (!baseUser.permissions || Object.keys(baseUser.permissions).length <= 1)) {
         console.log('Forcing staff permission refresh...');
-        // Use hardcoded permissions based on database state
+        // Only grant dashboard - let the backend permissions be the source of truth
         baseUser.permissions = {
-          dashboard: true,
-          residents: true,
-          documents: false,
-          household: false,
-          blotter: false,
-          treasurer: false,
-          officials: false,
-          staff: false,
-          communication: false,
-          social_services: true,
-          command_center: false,
-          projects: false,
-          inventory: false,
-          logs: false
+          dashboard: true
         };
-        console.log('Forced staff permissions set:', baseUser.permissions);
+        baseUser.module_permissions = {
+          dashboard: true
+        };
+        console.log('Forced minimal staff permissions (dashboard only):', baseUser.permissions);
       }
 
       // Set user early so UI can render role-specific UI
@@ -279,22 +295,12 @@ const AuthProvider = ({ children }) => {
             logs: true
           };
         } else if (userData.role === 'staff') {
-          // Set default permissions, fetch detailed ones later
+          // Set minimal default permissions - detailed ones will be fetched from backend
           userData.permissions = {
-            dashboard: true,
-            residents: true,
-            documents: false,
-            household: false,
-            blotter: false,
-            treasurer: false,
-            officials: false,
-            staff: false,
-            communication: false,
-            social_services: true,
-            command_center: false,
-            projects: false,
-            inventory: false,
-            logs: false
+            dashboard: true
+          };
+          userData.module_permissions = {
+            dashboard: true
           };
         } else {
           userData.permissions = { dashboard: true };
