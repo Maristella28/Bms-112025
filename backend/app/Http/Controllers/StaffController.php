@@ -286,9 +286,18 @@ class StaffController extends Controller
      */
     public function updateModulePermissions(Request $request, $id)
     {
+        Log::info('=== updateModulePermissions CALLED ===', [
+            'staff_id' => $id,
+            'request_data' => $request->all(),
+            'module_permissions_received' => $request->module_permissions,
+            'user_id' => $request->user()?->id,
+            'user_role' => $request->user()?->role
+        ]);
+        
         // Check if user has staff management permission
         $permissionCheck = $this->checkModulePermission($request, 'staffManagement', 'staff management');
         if ($permissionCheck) {
+            Log::warning('Permission check failed', ['response' => $permissionCheck]);
             return $permissionCheck;
         }
 
@@ -455,7 +464,11 @@ class StaffController extends Controller
 
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack();
-            Log::error('Validation error updating permissions: ' . $e->getMessage());
+            Log::error('Validation error updating permissions', [
+                'message' => $e->getMessage(),
+                'errors' => $e->validator->errors()->all(),
+                'request_data' => $request->all()
+            ]);
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $e->validator->errors()->all()
@@ -470,12 +483,17 @@ class StaffController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error updating permissions: ' . $e->getMessage(), [
-                'exception' => $e,
-                'staff_id' => $id
+            Log::error('Error updating permissions', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+                'staff_id' => $id,
+                'request_data' => $request->all()
             ]);
             return response()->json([
-                'message' => 'An error occurred while updating permissions'
+                'message' => 'An error occurred while updating permissions',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
