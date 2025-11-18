@@ -144,11 +144,18 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
       return result;
     }
     
+    // If flat key doesn't exist, the action is NOT permitted
+    // Don't fall through to module permission check - specific actions require explicit permission
+    console.log(`canPerformAction: Flat key "${flatKey}" not found - action NOT permitted`);
+    
     // Also check all keys to see what's available (for debugging)
     const availableKeys = Object.keys(staffPermissions).filter(k => k.includes(backendKey));
     if (availableKeys.length > 0) {
       console.log(`canPerformAction: Looking for "${flatKey}", available keys:`, availableKeys);
     }
+    
+    // Return false - specific action permission is required
+    return false;
   }
   
   // Try frontend key first
@@ -174,8 +181,8 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
         if (subPermission.sub_permissions[action] !== undefined) {
           return Boolean(subPermission.sub_permissions[action]);
         }
-        // If action not found in nested, check if sub-permission has access
-        return Boolean(subPermission.access);
+        // If action not found in nested, return false - specific action permission required
+        return false;
       }
       
       // Simple sub-permission (boolean)

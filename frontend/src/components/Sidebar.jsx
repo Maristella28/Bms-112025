@@ -379,8 +379,8 @@ const Sidebar = ({ permissions: propPermissions = {} }) => {
       
       const dashboardPromise = hasDashboardAccess
         ? axiosInstance.get('/admin/dashboard', {
-            timeout: 20000 // 20 second timeout - increased to handle slow database queries
-          }).then(response => {
+        timeout: 20000 // 20 second timeout - increased to handle slow database queries
+      }).then(response => {
         const stats = response.data?.statistics || {};
         
         // Use dashboard stats for estimated counts (but don't update state yet)

@@ -306,7 +306,7 @@ class StaffController extends Controller
                 'module_permissions.*' => ['nullable'], // Allow nested arrays, we'll validate booleans manually
                 'staff_id' => ['required', 'integer', 'exists:staff,id']
             ]);
-            
+
             // Recursively validate that all permission values are booleans
             $validatePermissionsAreBoolean = function($permissions) use (&$validatePermissionsAreBoolean) {
                 foreach ($permissions as $key => $value) {
@@ -359,7 +359,7 @@ class StaffController extends Controller
                     }
                 }
             }
-
+            
             // Define all expected permission keys with default false values
             $defaultPermissions = [
                 'dashboard' => false,

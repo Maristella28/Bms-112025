@@ -130,7 +130,7 @@ const StaffManagement = () => {
             };
           } else {
             // Handle simple sub-permissions (boolean)
-            normalizedSubPerms[subKey] = subValue === true || subValue === 1 || subValue === '1' || subValue === 'true';
+          normalizedSubPerms[subKey] = subValue === true || subValue === 1 || subValue === '1' || subValue === 'true';
           }
         });
         
@@ -226,9 +226,9 @@ const StaffManagement = () => {
                 }
               } else {
                 // It's a simple boolean sub-permission
-                base[uiKey].sub_permissions[subKey] = normalizedValue;
-                if (normalizedValue) {
-                  base[uiKey].access = true;
+            base[uiKey].sub_permissions[subKey] = normalizedValue;
+            if (normalizedValue) {
+              base[uiKey].access = true;
                 }
               }
             }
@@ -266,8 +266,8 @@ const StaffManagement = () => {
               out[`${apiKey}_${subKey}`] = Boolean(subVal.access);
               Object.entries(subVal.sub_permissions).forEach(([nestedKey, nestedVal]) => {
                 out[`${apiKey}_${subKey}_${nestedKey}`] = Boolean(nestedVal);
-              });
-            } else {
+          });
+        } else {
               // Handle simple sub-permissions (boolean)
               out[`${apiKey}_${subKey}`] = Boolean(subVal);
             }
@@ -624,7 +624,7 @@ const StaffManagement = () => {
 
       // Store staff name before clearing editingStaff
       const staffName = editingStaff?.name || 'the staff member';
-      
+
       // Close the permissions modal
       setShowPermissionsModal(false);
       setEditingStaff(null);
@@ -1226,7 +1226,7 @@ const StaffManagement = () => {
                                           };
                                         } else {
                                           // Handle simple boolean sub-permission
-                                          acc[subKey] = newAccess;
+                                        acc[subKey] = newAccess;
                                         }
                                         return acc;
                                       }, {}) : undefined
@@ -1255,28 +1255,28 @@ const StaffManagement = () => {
                               <div key={subKey} className="bg-gray-50 rounded-lg p-3">
                                 {/* Main sub-permission toggle */}
                                 <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                                <div className="flex items-center gap-2">
+                                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                                     <span className="text-sm font-medium text-gray-700 capitalize">{subLabel}</span>
-                                  </div>
-                                  <label className="relative inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
+                                </div>
+                                <label className="relative inline-flex items-center cursor-pointer">
+                                  <input
+                                    type="checkbox"
                                       checked={hasNestedSubPermissions 
                                         ? Boolean(subPermission?.access) 
                                         : Boolean(subPermission)}
-                                      onChange={(e) => {
+                                    onChange={(e) => {
                                         const newValue = e.target.checked;
                                         if (hasNestedSubPermissions) {
                                           // Handle nested sub-permissions
-                                          setEditingStaff(prev => ({
-                                            ...prev,
-                                            module_permissions: {
-                                              ...(prev.module_permissions || {}),
-                                              [moduleKey]: {
-                                                ...currentPermission,
-                                                sub_permissions: {
-                                                  ...(currentPermission.sub_permissions || {}),
+                                      setEditingStaff(prev => ({
+                                        ...prev,
+                                        module_permissions: {
+                                          ...(prev.module_permissions || {}),
+                                          [moduleKey]: {
+                                            ...currentPermission,
+                                            sub_permissions: {
+                                              ...(currentPermission.sub_permissions || {}),
                                                   [subKey]: {
                                                     access: newValue,
                                                     // If enabling, enable all nested sub-permissions; if disabling, disable all
@@ -1285,10 +1285,10 @@ const StaffManagement = () => {
                                                       return acc;
                                                     }, {})
                                                   }
-                                                }
-                                              }
                                             }
-                                          }));
+                                          }
+                                        }
+                                      }));
                                         } else {
                                           // Handle simple boolean sub-permission
                                           setEditingStaff(prev => ({
@@ -1305,10 +1305,10 @@ const StaffManagement = () => {
                                             }
                                           }));
                                         }
-                                      }}
-                                      className="sr-only peer"
-                                    />
-                                    <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
+                                    }}
+                                    className="sr-only peer"
+                                  />
+                                  <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-600"></div>
                                   </label>
                                 </div>
                                 
@@ -1353,7 +1353,7 @@ const StaffManagement = () => {
                                               className="sr-only peer"
                                             />
                                             <div className="w-8 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-green-500"></div>
-                                          </label>
+                                </label>
                                         </div>
                                       );
                                     })}
