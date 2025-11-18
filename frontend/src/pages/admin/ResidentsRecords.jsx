@@ -2328,7 +2328,7 @@ const ResidentsRecords = () => {
               
               {/* Content */}
               <div className="relative z-10 flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 truncate">Pending Review</p>
+                <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2 truncate">For Review</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-2xl sm:text-3xl lg:text-4xl font-black text-amber-600 group-hover:text-orange-600 transition-all duration-300">
                     {residents.filter(r => r.for_review).length}
@@ -2425,7 +2425,7 @@ const ResidentsRecords = () => {
               <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-xl p-3 md:p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs md:text-sm text-amber-600 font-medium">Pending Review</p>
+                    <p className="text-xs md:text-sm text-amber-600 font-medium">For Review</p>
                     <p className="text-lg md:text-xl lg:text-2xl font-bold text-amber-700">{residents.filter(r => r.for_review).length}</p>
                     <p className="text-xs text-amber-500 mt-1 truncate">Awaiting approval</p>
                   </div>
