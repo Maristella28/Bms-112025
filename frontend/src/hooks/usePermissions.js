@@ -19,6 +19,20 @@ export const usePermissions = () => {
   // This ensures we use the actual backend permissions, not fallback values
   let staffPermissions = user?.module_permissions || user?.permissions || {};
   
+  // Debug: Log what permissions we have
+  if (user?.role === 'staff') {
+    console.log('usePermissions - Staff permissions:', {
+      hasModulePermissions: !!user?.module_permissions,
+      modulePermissionsKeys: Object.keys(user?.module_permissions || {}),
+      hasPermissions: !!user?.permissions,
+      permissionsKeys: Object.keys(user?.permissions || {}),
+      staffPermissionsKeys: Object.keys(staffPermissions),
+      residentsRecords_main_records_edit: staffPermissions['residentsRecords_main_records_edit'],
+      residentsRecords_main_records_disable: staffPermissions['residentsRecords_main_records_disable'],
+      residentsRecords_main_records_view: staffPermissions['residentsRecords_main_records_view']
+    });
+  }
+  
   // Check if permissions are actually loaded (not just fallback)
   // If module_permissions only has dashboard and permissions only has dashboard, it's likely a fallback
   const isFallback = user?.role === 'staff' && 

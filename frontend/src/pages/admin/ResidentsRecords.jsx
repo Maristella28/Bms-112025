@@ -729,6 +729,19 @@ const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
   const canEdit = user?.role === 'admin' || canPerformAction('edit', 'residents', 'main_records');
   const canDisable = user?.role === 'admin' || canPerformAction('disable', 'residents', 'main_records');
   const canView = user?.role === 'admin' || canPerformAction('view', 'residents', 'main_records');
+  
+  // Debug logging
+  if (user?.role === 'staff') {
+    console.log('ActionsDropdown permissions check:', {
+      canEdit,
+      canDisable,
+      canView,
+      module_permissions: authContext?.user?.module_permissions,
+      residentsRecords_main_records_edit: authContext?.user?.module_permissions?.residentsRecords_main_records_edit,
+      residentsRecords_main_records_disable: authContext?.user?.module_permissions?.residentsRecords_main_records_disable,
+      residentsRecords_main_records_view: authContext?.user?.module_permissions?.residentsRecords_main_records_view
+    });
+  }
 
   // Calculate dropdown position when opened
   useEffect(() => {
@@ -1496,6 +1509,11 @@ const ResidentsRecords = () => {
     // Check if user has view permission (for staff users)
     if (user?.role === 'staff') {
       const canView = canPerformAction('view', 'residents', 'main_records');
+      console.log('View permission check:', {
+        canView,
+        permissions: user?.module_permissions,
+        residentsRecords_main_records_view: user?.module_permissions?.residentsRecords_main_records_view
+      });
       if (!canView) {
         toast.error('You do not have permission to view resident details');
         return;

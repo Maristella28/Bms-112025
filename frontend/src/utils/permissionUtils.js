@@ -111,7 +111,53 @@ export const getFilteredNavigationItems = (navigationItems, staffPermissions) =>
 export const canPerformAction = (staffPermissions, action, moduleKey, subModuleKey = null) => {
   if (!staffPermissions || !action || !moduleKey) return false;
   
-  const modulePermission = staffPermissions[moduleKey];
+  // Map frontend module keys to backend keys
+  const backendKeyMap = {
+    'dashboard': 'dashboard',
+    'residents': 'residentsRecords',
+    'documents': 'documentsRecords',
+    'household': 'householdRecords',
+    'blotter': 'blotterRecords',
+    'treasurer': 'financialTracking',
+    'officials': 'barangayOfficials',
+    'staff': 'staffManagement',
+    'communication': 'communicationAnnouncement',
+    'projects': 'projectManagement',
+    'social_services': 'socialServices',
+    'command_center': 'disasterEmergency',
+    'inventory': 'inventoryAssets',
+    'logs': 'activityLogs'
+  };
+  
+  const backendKey = backendKeyMap[moduleKey] || moduleKey;
+  
+  // First, check if permissions are in flat backend format (e.g., residentsRecords_main_records_edit)
+  // This is the format returned directly from the backend
+  if (subModuleKey && action) {
+    // Check flat format: backendKey_subModuleKey_action (e.g., residentsRecords_main_records_edit)
+    const flatKey = `${backendKey}_${subModuleKey}_${action}`;
+    
+    // Check directly in staffPermissions (which should be module_permissions from backend)
+    if (staffPermissions[flatKey] !== undefined) {
+      const result = Boolean(staffPermissions[flatKey]);
+      console.log(`canPerformAction: Found flat key "${flatKey}" = ${result}`);
+      return result;
+    }
+    
+    // Also check all keys to see what's available (for debugging)
+    const availableKeys = Object.keys(staffPermissions).filter(k => k.includes(backendKey));
+    if (availableKeys.length > 0) {
+      console.log(`canPerformAction: Looking for "${flatKey}", available keys:`, availableKeys);
+    }
+  }
+  
+  // Try frontend key first
+  let modulePermission = staffPermissions[moduleKey];
+  
+  // If not found, try backend key
+  if (modulePermission === undefined && backendKey) {
+    modulePermission = staffPermissions[backendKey];
+  }
   
   // Handle new permission structure with nested sub-permissions
   if (typeof modulePermission === 'object' && modulePermission !== null) {
