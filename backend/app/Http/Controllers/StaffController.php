@@ -332,11 +332,16 @@ class StaffController extends Controller
             };
             
             // Flatten nested permissions and ensure all are booleans
+            // IMPORTANT: This should NOT be called if permissions are already flat!
+            // The frontend sends flat permissions like: residentsRecords_main_records_view: true
+            // So we should NOT flatten them again
             $flattenPermissions = function($permissions, $prefix = '') use (&$flattenPermissions) {
                 $result = [];
                 foreach ($permissions as $key => $value) {
                     $fullKey = $prefix ? "{$prefix}_{$key}" : $key;
                     if (is_array($value)) {
+                        // Only recurse if it's a nested array structure
+                        // If it's already a flat key-value structure, don't flatten
                         $result = array_merge($result, $flattenPermissions($value, $fullKey));
                     } else {
                         // Convert to boolean
@@ -346,27 +351,55 @@ class StaffController extends Controller
                 return $result;
             };
             
-            // Flatten the permissions if they're nested
+            // Process incoming permissions
+            // The frontend sends FLAT permissions like: residentsRecords_main_records_view: true
+            // So we should NOT flatten them - they're already in the correct format
             $incomingPermissions = $request->module_permissions;
             if (!empty($incomingPermissions) && is_array($incomingPermissions)) {
-                // Check if permissions are nested (have array values)
+                // Check if permissions are nested (have array values that are NOT booleans)
+                // If keys contain underscores like "residentsRecords_main_records_view", they're already flat
                 $hasNested = false;
-                foreach ($incomingPermissions as $value) {
-                    if (is_array($value)) {
+                $hasFlatKeys = false;
+                foreach ($incomingPermissions as $key => $value) {
+                    // Check if key contains underscores (indicating flat format)
+                    if (strpos($key, '_') !== false) {
+                        $hasFlatKeys = true;
+                    }
+                    // If value is an array AND the key doesn't contain underscores, it's nested
+                    if (is_array($value) && strpos($key, '_') === false) {
                         $hasNested = true;
-                        break;
                     }
                 }
                 
-                if ($hasNested) {
-                    // Permissions are nested, flatten them
+                // If we have flat keys (with underscores), don't flatten - they're already flat
+                if ($hasFlatKeys && !$hasNested) {
+                    // Permissions are already flat (e.g., ['residentsRecords_main_records_view' => true])
+                    // Just ensure they're booleans
+                    Log::info('Permissions are already flat, normalizing booleans...', [
+                        'sample_keys' => array_slice(array_keys($incomingPermissions), 0, 5)
+                    ]);
+                    foreach ($incomingPermissions as $key => $value) {
+                        $incomingPermissions[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
+                    }
+                } elseif ($hasNested) {
+                    // Permissions are nested (e.g., ['residentsRecords' => ['main_records' => ['view' => true]]])
+                    // Flatten them
+                    Log::info('Permissions are nested, flattening...');
                     $incomingPermissions = $flattenPermissions($incomingPermissions);
                 } else {
-                    // Permissions are already flat, just ensure they're booleans
+                    // Default: just normalize booleans
                     foreach ($incomingPermissions as $key => $value) {
                         $incomingPermissions[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
                     }
                 }
+                
+                Log::info('Processed incoming permissions', [
+                    'count' => count($incomingPermissions),
+                    'sample_keys' => array_slice(array_keys($incomingPermissions), 0, 10),
+                    'residents_keys' => array_filter(array_keys($incomingPermissions), function($k) {
+                        return strpos($k, 'residents') !== false;
+                    })
+                ]);
             }
             
             // Define all expected permission keys with default false values
@@ -422,32 +455,58 @@ class StaffController extends Controller
             ]);
             
             // Update the staff permissions
+            // IMPORTANT: Laravel's array cast should handle JSON encoding automatically
+            // But let's ensure we're setting it correctly
             $staff->module_permissions = $finalPermissions;
             
-            // Log the permissions being saved
-            Log::info('Saving staff permissions', [
+            // Log the permissions being saved BEFORE save
+            Log::info('Saving staff permissions - BEFORE save', [
                 'staff_id' => $staff->id,
-                'original_permissions' => $request->module_permissions,
-                'final_permissions' => $finalPermissions,
-                'residents_related_keys' => array_filter(array_keys($finalPermissions), function($key) {
-                    return strpos($key, 'residents') !== false;
-                }),
+                'final_permissions_to_save' => $finalPermissions,
                 'residentsRecords_main_records_view' => $finalPermissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
                 'residentsRecords_main_records_edit' => $finalPermissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
                 'residentsRecords_main_records_disable' => $finalPermissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
+                'residentsRecords_main_records' => $finalPermissions['residentsRecords_main_records'] ?? 'NOT_SET',
+                'model_module_permissions_before' => $staff->module_permissions,
             ]);
             
-            $staff->save();
+            // Save the model
+            // Try using update() method to ensure the save happens
+            $saveResult = $staff->update(['module_permissions' => $finalPermissions]);
             
-            // Verify what was actually saved
-            $staff->refresh();
-            Log::info('Staff permissions after save', [
+            Log::info('Staff save result', [
                 'staff_id' => $staff->id,
-                'saved_permissions' => $staff->module_permissions,
+                'save_result' => $saveResult,
+                'wasRecentlyCreated' => $staff->wasRecentlyCreated,
+                'wasChanged' => $staff->wasChanged(),
+                'getChanges' => $staff->getChanges(),
+                'dirty_attributes' => $staff->getDirty(),
+            ]);
+            
+            // If save() didn't work, try direct DB update as fallback
+            if (!$saveResult) {
+                Log::warning('Model save() returned false, trying direct DB update');
+                $dbUpdateResult = \DB::table('staff')
+                    ->where('id', $staff->id)
+                    ->update(['module_permissions' => json_encode($finalPermissions)]);
+                Log::info('Direct DB update result', ['result' => $dbUpdateResult]);
+            }
+            
+            // Verify what was actually saved by querying database directly
+            $staff->refresh();
+            $dbPermissions = \DB::table('staff')->where('id', $staff->id)->value('module_permissions');
+            
+            Log::info('Staff permissions after save and refresh', [
+                'staff_id' => $staff->id,
+                'model_module_permissions' => $staff->module_permissions,
+                'raw_db_value' => $dbPermissions,
+                'decoded_db_value' => json_decode($dbPermissions, true),
                 'residents_related_keys' => array_filter(array_keys($staff->module_permissions ?? []), function($key) {
                     return strpos($key, 'residents') !== false;
                 }),
                 'residentsRecords_main_records_view' => $staff->module_permissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
+                'residentsRecords_main_records_edit' => $staff->module_permissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
+                'residentsRecords_main_records_disable' => $staff->module_permissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
             ]);
 
             DB::commit();
