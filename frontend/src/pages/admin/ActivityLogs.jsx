@@ -32,29 +32,49 @@ const ActivityLogs = () => {
   // Helper function to get action badge styling and display text
   const getActionBadge = (action) => {
     const actionLower = action.toLowerCase();
-    let className = 'px-3 py-1 rounded-full text-xs font-semibold ';
-    let displayText = action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+    let className = 'px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap inline-flex items-center ';
     
+    // Format display text: handle dots, underscores, and capitalization
+    let displayText = action
+      .replace(/\./g, ' ') // Replace dots with spaces
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .trim()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+    
+    // Determine badge color based on action type
     if (actionLower.includes('login')) {
-      className += 'bg-green-100 text-green-800';
+      className += 'bg-green-100 text-green-800 border border-green-200';
     } else if (actionLower.includes('logout')) {
-      className += 'bg-yellow-100 text-yellow-800';
+      className += 'bg-yellow-100 text-yellow-800 border border-yellow-200';
     } else if (actionLower.includes('delete') || actionLower.includes('deleted')) {
-      className += 'bg-red-100 text-red-800';
-    } else if (actionLower.includes('generate_pdf') || actionLower.includes('download_pdf')) {
-      className += 'bg-indigo-100 text-indigo-800';
+      className += 'bg-red-100 text-red-800 border border-red-200';
+    } else if (actionLower.includes('restore') || actionLower.includes('restored')) {
+      className += 'bg-orange-100 text-orange-800 border border-orange-200';
+    } else if (actionLower.includes('backup')) {
+      if (actionLower.includes('create') || actionLower.includes('created')) {
+        className += 'bg-blue-100 text-blue-800 border border-blue-200';
+      } else if (actionLower.includes('restore') || actionLower.includes('restored')) {
+        className += 'bg-orange-100 text-orange-800 border border-orange-200';
+      } else {
+        className += 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+      }
+    } else if (actionLower.includes('generate_pdf') || actionLower.includes('download_pdf') || actionLower.includes('download')) {
+      className += 'bg-indigo-100 text-indigo-800 border border-indigo-200';
     } else if (actionLower.includes('program_created') || actionLower.includes('program_updated')) {
-      className += 'bg-emerald-100 text-emerald-800';
+      className += 'bg-emerald-100 text-emerald-800 border border-emerald-200';
     } else if (actionLower.includes('beneficiary_added_paid')) {
       className += 'bg-green-100 text-green-800 border-2 border-green-300';
     } else if (actionLower.includes('beneficiary_added')) {
-      className += 'bg-cyan-100 text-cyan-800';
+      className += 'bg-cyan-100 text-cyan-800 border border-cyan-200';
     } else if (actionLower.includes('create') || actionLower.includes('created')) {
-      className += 'bg-blue-100 text-blue-800';
+      className += 'bg-blue-100 text-blue-800 border border-blue-200';
     } else if (actionLower.includes('update') || actionLower.includes('updated')) {
-      className += 'bg-purple-100 text-purple-800';
+      className += 'bg-purple-100 text-purple-800 border border-purple-200';
     } else {
-      className += 'bg-gray-100 text-gray-800';
+      className += 'bg-gray-100 text-gray-800 border border-gray-200';
     }
     
     return { className, displayText };
@@ -770,7 +790,7 @@ const ActivityLogs = () => {
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Date & Time</th>
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">User</th>
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider hidden sm:table-cell min-w-[120px]">User Type</th>
-                  <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Action</th>
+                  <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Action</th>
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider hidden md:table-cell min-w-[150px]">Model</th>
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider hidden lg:table-cell min-w-[250px]">Description</th>
                   <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider hidden lg:table-cell min-w-[150px]">IP Address</th>
@@ -828,10 +848,12 @@ const ActivityLogs = () => {
                                     </span>
                                   </td>
                                   <td className="px-6 py-4">
-                                    {(() => {
-                                      const { className, displayText } = getActionBadge(log.action);
-                                      return <span className={className}>{displayText}</span>;
-                                    })()}
+                                    <div className="flex items-center">
+                                      {(() => {
+                                        const { className, displayText } = getActionBadge(log.action);
+                                        return <span className={className}>{displayText}</span>;
+                                      })()}
+                                    </div>
                                   </td>
                                   <td className="px-6 py-4 hidden md:table-cell">
                                     <div className="flex items-center gap-2">
@@ -896,7 +918,7 @@ const ActivityLogs = () => {
                           <tr>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Date & Time</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">User</th>
-                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Action</th>
+                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Action</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Model</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[250px]">Description</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">IP Address</th>
@@ -932,10 +954,12 @@ const ActivityLogs = () => {
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                  {(() => {
-                                    const { className, displayText } = getActionBadge(log.action);
-                                    return <span className={className}>{displayText}</span>;
-                                  })()}
+                                  <div className="flex items-center">
+                                    {(() => {
+                                      const { className, displayText } = getActionBadge(log.action);
+                                      return <span className={className}>{displayText}</span>;
+                                    })()}
+                                  </div>
                                 </td>
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-2">
@@ -998,7 +1022,7 @@ const ActivityLogs = () => {
                           <tr>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Date & Time</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">User</th>
-                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Action</th>
+                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Action</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Model</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[250px]">Description</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">IP Address</th>
@@ -1100,7 +1124,7 @@ const ActivityLogs = () => {
                           <tr>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Date & Time</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">User</th>
-                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Action</th>
+                            <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[180px]">Action</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">Model</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[250px]">Description</th>
                             <th className="px-6 py-4 text-left font-bold text-slate-700 border-r border-slate-200 text-sm uppercase tracking-wider min-w-[150px]">IP Address</th>
@@ -1136,10 +1160,12 @@ const ActivityLogs = () => {
                                   </div>
                                 </td>
                                 <td className="px-6 py-4">
-                                  {(() => {
-                                    const { className, displayText } = getActionBadge(log.action);
-                                    return <span className={className}>{displayText}</span>;
-                                  })()}
+                                  <div className="flex items-center">
+                                    {(() => {
+                                      const { className, displayText } = getActionBadge(log.action);
+                                      return <span className={className}>{displayText}</span>;
+                                    })()}
+                                  </div>
                                 </td>
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-2">
