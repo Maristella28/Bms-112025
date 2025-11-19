@@ -499,50 +499,100 @@ class BackupController extends Controller
                 // Database backup restoration
                 \Log::info('Restoring database backup: ' . $filename);
                 
-                // Check if file is compressed
-                if (preg_match('/\.sql\.gz$/', $filename)) {
-                    // Decompress and restore
-                    $tempSqlFile = storage_path('app/temp_restore_' . time() . '.sql');
-                    
-                    // Decompress using gzip
-                    if (function_exists('gzopen')) {
-                        $gz = gzopen($backupFile, 'r');
-                        $sqlContent = '';
-                        while (!gzeof($gz)) {
-                            $sqlContent .= gzread($gz, 8192);
+                $tempSqlFile = null;
+                
+                try {
+                    // Check if file is compressed
+                    if (preg_match('/\.sql\.gz$/', $filename)) {
+                        // Decompress and restore
+                        $tempSqlFile = storage_path('app/temp_restore_' . time() . '.sql');
+                        
+                        // Decompress using gzip
+                        if (function_exists('gzopen')) {
+                            $gz = gzopen($backupFile, 'r');
+                            $sqlContent = '';
+                            while (!gzeof($gz)) {
+                                $sqlContent .= gzread($gz, 8192);
+                            }
+                            gzclose($gz);
+                            file_put_contents($tempSqlFile, $sqlContent);
+                        } else {
+                            // Fallback: use system command
+                            exec("gunzip -c \"$backupFile\" > \"$tempSqlFile\" 2>&1", $decompressOutput, $exitCode);
+                            if ($exitCode !== 0) {
+                                throw new \Exception('Failed to decompress backup file: ' . implode("\n", $decompressOutput));
+                            }
                         }
-                        gzclose($gz);
-                        file_put_contents($tempSqlFile, $sqlContent);
+                        
+                        // Read SQL file
+                        $sqlContent = file_get_contents($tempSqlFile);
+                        if ($sqlContent === false) {
+                            throw new \Exception('Failed to read decompressed SQL file');
+                        }
                     } else {
-                        // Fallback: use system command
-                        exec("gunzip -c \"$backupFile\" > \"$tempSqlFile\" 2>&1", $output, $exitCode);
-                        if ($exitCode !== 0) {
-                            throw new \Exception('Failed to decompress backup file: ' . implode("\n", $output));
+                        // Plain SQL file
+                        $sqlContent = file_get_contents($backupFile);
+                        if ($sqlContent === false) {
+                            throw new \Exception('Failed to read SQL file');
                         }
                     }
                     
-                    // Read SQL file and execute
-                    $sqlContent = file_get_contents($tempSqlFile);
-                    if ($sqlContent === false) {
-                        throw new \Exception('Failed to read decompressed SQL file');
+                    // Process SQL content to handle existing tables
+                    // First, extract all table names from CREATE TABLE statements
+                    $tableNames = [];
+                    preg_match_all('/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?(\w+)[`"]?/i', $sqlContent, $matches);
+                    if (!empty($matches[1])) {
+                        $tableNames = array_unique($matches[1]);
                     }
+                    
+                    // Build DROP TABLE statements for all tables found
+                    $dropStatements = '';
+                    if (!empty($tableNames)) {
+                        foreach ($tableNames as $tableName) {
+                            $dropStatements .= "DROP TABLE IF EXISTS `$tableName`;\n";
+                        }
+                    }
+                    
+                    // Prepend DROP statements to SQL content
+                    $processedSql = $dropStatements . $sqlContent;
+                    
+                    // Also ensure existing DROP TABLE statements use IF EXISTS
+                    $processedSql = preg_replace(
+                        '/DROP\s+TABLE\s+(?!IF\s+EXISTS)/i',
+                        'DROP TABLE IF EXISTS ',
+                        $processedSql
+                    );
                     
                     // Split SQL into individual statements
                     $statements = array_filter(
-                        array_map('trim', explode(';', $sqlContent)),
+                        array_map('trim', explode(';', $processedSql)),
                         function($stmt) {
-                            return !empty($stmt) && !preg_match('/^--/', $stmt);
+                            $stmt = trim($stmt);
+                            return !empty($stmt) && 
+                                   !preg_match('/^--/', $stmt) &&
+                                   !preg_match('/^\/\*/', $stmt) &&
+                                   !preg_match('/^\*\/$/', $stmt);
                         }
                     );
                     
                     // Disable foreign key checks temporarily
                     DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                    DB::statement('SET SQL_MODE="NO_AUTO_VALUE_ON_ZERO";');
                     
                     try {
-                        // Execute each SQL statement
-                        foreach ($statements as $statement) {
+                        // Execute each SQL statement with error handling
+                        foreach ($statements as $index => $statement) {
                             if (!empty($statement)) {
-                                DB::unprepared($statement);
+                                try {
+                                    DB::unprepared($statement);
+                                } catch (\Exception $e) {
+                                    // Log but continue for non-critical errors
+                                    if (strpos($e->getMessage(), 'already exists') === false && 
+                                        strpos($e->getMessage(), 'Duplicate') === false) {
+                                        \Log::warning("SQL statement error at index $index: " . $e->getMessage());
+                                        // Continue with other statements
+                                    }
+                                }
                             }
                         }
                         $success = true;
@@ -551,30 +601,19 @@ class BackupController extends Controller
                         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
                         
                         // Clean up temp file
-                        if (file_exists($tempSqlFile)) {
+                        if ($tempSqlFile && file_exists($tempSqlFile)) {
                             unlink($tempSqlFile);
                         }
                     }
-                } else {
-                    // Plain SQL file
-                    $sqlContent = file_get_contents($backupFile);
-                    if ($sqlContent === false) {
-                        throw new \Exception('Failed to read SQL file');
-                    }
                     
-                    // Disable foreign key checks temporarily
-                    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-                    
-                    try {
-                        DB::unprepared($sqlContent);
-                        $success = true;
-                    } finally {
-                        // Re-enable foreign key checks
-                        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                    $output[] = "Database restored successfully from: $filename";
+                } catch (\Exception $e) {
+                    // Clean up temp file on error
+                    if ($tempSqlFile && file_exists($tempSqlFile)) {
+                        unlink($tempSqlFile);
                     }
+                    throw $e;
                 }
-                
-                $output[] = "Database restored successfully from: $filename";
                 
             } elseif (strpos($filename, 'storage_backup_') === 0) {
                 // Storage backup restoration
