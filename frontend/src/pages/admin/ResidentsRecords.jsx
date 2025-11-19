@@ -740,16 +740,26 @@ const ActionsDropdown = ({ resident, onEdit, onDisable, onView }) => {
     return Boolean(value);
   };
   
-  // Get direct permission values as fallback
+  // CRITICAL: Get permissions directly from module_permissions (database source)
+  // This ensures we're reading from the actual database permissions, not cached values
   const perms = user?.module_permissions || {};
+  
+  // Normalize permission values (handle true, 1, '1', false, 0, '0', etc.)
   const directEdit = normalizePermission(perms.residentsRecords_main_records_edit);
   const directDisable = normalizePermission(perms.residentsRecords_main_records_disable);
   const directView = normalizePermission(perms.residentsRecords_main_records_view);
   
-  // Check permissions using canPerformAction first, then fallback to direct values
-  const canEdit = isAdmin || (hasPermissionsLoaded && (canPerformAction('edit', 'residents', 'main_records') || directEdit));
-  const canDisable = isAdmin || (hasPermissionsLoaded && (canPerformAction('disable', 'residents', 'main_records') || directDisable));
-  const canView = isAdmin || (hasPermissionsLoaded && (canPerformAction('view', 'residents', 'main_records') || directView));
+  // Check permissions using canPerformAction (which reads from module_permissions)
+  // canPerformAction is the PRIMARY check - it reads directly from the database permissions
+  const canPerformEdit = canPerformAction('edit', 'residents', 'main_records');
+  const canPerformDisable = canPerformAction('disable', 'residents', 'main_records');
+  const canPerformView = canPerformAction('view', 'residents', 'main_records');
+  
+  // Use canPerformAction result OR direct permission check as fallback
+  // This ensures we catch permissions even if canPerformAction has issues
+  const canEdit = isAdmin || (hasPermissionsLoaded && (canPerformEdit || directEdit));
+  const canDisable = isAdmin || (hasPermissionsLoaded && (canPerformDisable || directDisable));
+  const canView = isAdmin || (hasPermissionsLoaded && (canPerformView || directView));
   
   // Debug logging for staff users
   if (user?.role === 'staff') {
@@ -779,7 +789,11 @@ const ActionsDropdown = ({ resident, onEdit, onDisable, onView }) => {
       directEdit,
       directDisable,
       directView,
-      // Test the permission check directly
+      // Test the permission check directly (from canPerformAction)
+      canPerformEdit,
+      canPerformDisable,
+      canPerformView,
+      // Test the permission check directly (raw call)
       testEdit: canPerformAction('edit', 'residents', 'main_records'),
       testDisable: canPerformAction('disable', 'residents', 'main_records'),
       testView: canPerformAction('view', 'residents', 'main_records'),
@@ -1042,12 +1056,31 @@ const ResidentsRecords = () => {
   const { mainClasses } = useAdminResponsiveLayout();
   
   // Ensure permissions are loaded for staff users
+  // This ensures we always have the latest permissions from the database
   useEffect(() => {
-    if (user?.role === 'staff' && (!user?.module_permissions || Object.keys(user.module_permissions).length <= 1)) {
-      console.log('ResidentsRecords: Staff user permissions not loaded, refreshing...');
-      forceRefresh().catch(err => {
-        console.error('Failed to refresh user permissions:', err);
-      });
+    if (user?.role === 'staff') {
+      const modulePerms = user?.module_permissions || {};
+      const hasNestedPermissions = Object.keys(modulePerms).some(k => 
+        k.includes('_') && k.split('_').length >= 3
+      );
+      
+      // If permissions are not loaded or missing nested permissions, refresh
+      if (Object.keys(modulePerms).length <= 1 || !hasNestedPermissions) {
+        console.log('ResidentsRecords: Staff user permissions not fully loaded, refreshing...', {
+          modulePermissionsCount: Object.keys(modulePerms).length,
+          hasNestedPermissions,
+          modulePermissions: modulePerms
+        });
+        forceRefresh().catch(err => {
+          console.error('Failed to refresh user permissions:', err);
+        });
+      } else {
+        console.log('✅ ResidentsRecords: Permissions loaded successfully', {
+          modulePermissionsCount: Object.keys(modulePerms).length,
+          hasNestedPermissions,
+          residentsKeys: Object.keys(modulePerms).filter(k => k.includes('residents'))
+        });
+      }
     }
   }, [user?.role, user?.module_permissions, forceRefresh]);
   

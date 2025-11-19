@@ -77,10 +77,24 @@ class UserController extends Controller
                 $permissions = array_fill_keys($permissions, true);
             }
 
-            // Log the permissions being sent
+            // Log the permissions being sent with detailed breakdown
             \Log::info('Returning staff permissions', [
                 'user_id' => $user->id,
                 'staff_id' => $staff->id,
+                'permissions_count' => count($permissions),
+                'permissions_keys' => array_keys($permissions),
+                'residents_keys' => array_filter(array_keys($permissions), function($k) {
+                    return strpos($k, 'residents') !== false;
+                }),
+                'nested_permissions' => array_filter($permissions, function($k) {
+                    return strpos($k, '_') !== false && substr_count($k, '_') >= 2;
+                }, ARRAY_FILTER_USE_KEY),
+                'has_nested_residents' => isset($permissions['residentsRecords_main_records_edit']) || 
+                                         isset($permissions['residentsRecords_main_records_disable']) || 
+                                         isset($permissions['residentsRecords_main_records_view']),
+                'residentsRecords_main_records_edit' => $permissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
+                'residentsRecords_main_records_disable' => $permissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
+                'residentsRecords_main_records_view' => $permissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
                 'permissions' => $permissions
             ]);
 

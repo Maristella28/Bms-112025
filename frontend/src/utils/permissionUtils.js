@@ -111,6 +111,12 @@ export const getFilteredNavigationItems = (navigationItems, staffPermissions) =>
 export const canPerformAction = (staffPermissions, action, moduleKey, subModuleKey = null) => {
   if (!staffPermissions || !action || !moduleKey) return false;
   
+  // CRITICAL: Ensure staffPermissions is an object (not null/undefined)
+  if (typeof staffPermissions !== 'object' || staffPermissions === null) {
+    console.warn('canPerformAction: staffPermissions is not a valid object', { staffPermissions, action, moduleKey, subModuleKey });
+    return false;
+  }
+  
   // Map frontend module keys to backend keys
   const backendKeyMap = {
     'dashboard': 'dashboard',
@@ -131,22 +137,23 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
   
   const backendKey = backendKeyMap[moduleKey] || moduleKey;
   
+  // Normalize permission value - handle true, 1, '1', 'true', etc.
+  const normalizePermissionValue = (value) => {
+    if (value === undefined || value === null) return false;
+    if (value === true || value === 1 || value === '1' || value === 'true') return true;
+    if (value === false || value === 0 || value === '0' || value === 'false') return false;
+    return Boolean(value);
+  };
+  
   // First, check if permissions are in flat backend format (e.g., residentsRecords_main_records_edit)
-  // This is the format returned directly from the backend
+  // This is the format returned directly from the database via module_permissions
   if (subModuleKey && action) {
     // Check flat format: backendKey_subModuleKey_action (e.g., residentsRecords_main_records_edit)
     const flatKey = `${backendKey}_${subModuleKey}_${action}`;
     
-    // Normalize permission value - handle true, 1, '1', 'true', etc.
-    const normalizePermissionValue = (value) => {
-      if (value === undefined || value === null) return false;
-      if (value === true || value === 1 || value === '1' || value === 'true') return true;
-      if (value === false || value === 0 || value === '0' || value === 'false') return false;
-      return Boolean(value);
-    };
-    
-    // Check directly in staffPermissions (which should be module_permissions from backend)
-    if (staffPermissions[flatKey] !== undefined) {
+    // CRITICAL: Check directly in staffPermissions (which should be module_permissions from database)
+    // This is the PRIMARY check - database permissions are stored in flat format
+    if (flatKey in staffPermissions) {
       const result = normalizePermissionValue(staffPermissions[flatKey]);
       // Only log for debugging when checking residents permissions
       if (backendKey === 'residentsRecords') {
@@ -154,7 +161,8 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
           rawValue: staffPermissions[flatKey],
           normalizedValue: result,
           type: typeof staffPermissions[flatKey],
-          staffPermissionsKeys: Object.keys(staffPermissions).filter(k => k.includes('residents'))
+          staffPermissionsKeys: Object.keys(staffPermissions).filter(k => k.includes('residents')),
+          allKeysCount: Object.keys(staffPermissions).length
         });
       }
       return result;
@@ -180,7 +188,9 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
         // Check if main_records exists
         hasMainRecords: staffPermissions[`${backendKey}_${subModuleKey}`],
         // Check all residents-related keys
-        allResidentsKeys: allKeys.filter(k => k.toLowerCase().includes('residents'))
+        allResidentsKeys: allKeys.filter(k => k.toLowerCase().includes('residents')),
+        // Show first 20 keys for debugging
+        first20Keys: allKeys.slice(0, 20)
       });
     }
     
