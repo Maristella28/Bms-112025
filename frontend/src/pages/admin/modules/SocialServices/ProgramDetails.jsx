@@ -1440,24 +1440,99 @@ const ProgramDetails = () => {
   const handleDownloadReceipt = async (beneficiary) => {
     try {
       const response = await axiosInstance.get(`/admin/beneficiaries/${beneficiary.id}/download-receipt`, {
-        responseType: 'blob'
+        responseType: 'blob',
+        validateStatus: function (status) {
+          return status >= 200 && status < 600; // Don't throw for non-2xx
+        }
       });
       
+      // Check if response is an error (404, 500, etc.)
+      if (response.status !== 200) {
+        // Try to parse error message from blob
+        let errorMessage = 'Failed to download receipt';
+        try {
+          if (response.data instanceof Blob) {
+            const text = await response.data.text();
+            const errorData = JSON.parse(text);
+            errorMessage = errorData.message || errorData.error || errorMessage;
+          }
+        } catch (parseErr) {
+          // If parsing fails, use status-based message
+          if (response.status === 404) {
+            errorMessage = 'Receipt not found for this beneficiary';
+          } else if (response.status === 500) {
+            errorMessage = 'Server error while downloading receipt';
+          }
+        }
+        setToast({
+          type: 'error',
+          message: errorMessage
+        });
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+      
+      // Verify it's actually a PDF
+      const contentType = response.headers['content-type'] || response.headers['Content-Type'] || '';
+      if (!contentType.includes('application/pdf')) {
+        // Might be an error JSON, try to parse it
+        if (response.data instanceof Blob) {
+          try {
+            const text = await response.data.text();
+            const errorData = JSON.parse(text);
+            setToast({
+              type: 'error',
+              message: errorData.message || 'Invalid response from server'
+            });
+            setTimeout(() => setToast(null), 3000);
+            return;
+          } catch (parseErr) {
+            setToast({
+              type: 'error',
+              message: 'Server returned invalid content type. Expected PDF.'
+            });
+            setTimeout(() => setToast(null), 3000);
+            return;
+          }
+        }
+      }
+      
       // Create blob link to download
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const url = window.URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${beneficiary.receipt_number || 'receipt'}.pdf`);
+      link.setAttribute('download', `${beneficiary.receipt_number || 'receipt'}-${beneficiary.id}.pdf`);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
       
+      setToast({
+        type: 'success',
+        message: 'Receipt downloaded successfully'
+      });
+      setTimeout(() => setToast(null), 3000);
+      
     } catch (err) {
       console.error('Failed to download receipt:', err);
+      let errorMessage = 'Failed to download receipt';
+      
+      // Try to extract error message from response
+      if (err.response?.data instanceof Blob) {
+        try {
+          const text = await err.response.data.text();
+          const errorData = JSON.parse(text);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+          // If parsing fails, keep the original message
+        }
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      
       setToast({
         type: 'error',
-        message: 'Failed to download receipt'
+        message: errorMessage
       });
       setTimeout(() => setToast(null), 3000);
     }

@@ -213,10 +213,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'staff', 'sanitize'])->group
     Route::post('/program-announcements/{id}/publish', [App\Http\Controllers\ProgramAnnouncementController::class, 'publish']);
     
     // Beneficiaries
-    Route::apiResource('beneficiaries', App\Http\Controllers\BeneficiaryController::class);
+    // Specific routes must come before apiResource to avoid route conflicts
+    Route::get('/beneficiaries/{id}/download-receipt', [App\Http\Controllers\BeneficiaryController::class, 'downloadReceipt']);
     Route::post('/beneficiaries/{id}/toggle-visibility', [App\Http\Controllers\BeneficiaryController::class, 'toggleVisibility']);
     Route::post('/beneficiaries/{id}/mark-paid', [App\Http\Controllers\BeneficiaryController::class, 'markPaid']);
-    Route::get('/beneficiaries/{id}/download-receipt', [App\Http\Controllers\BeneficiaryController::class, 'downloadReceipt']);
+    Route::apiResource('beneficiaries', App\Http\Controllers\BeneficiaryController::class);
     
     // ============================================
     // 🚨 COMMAND CENTER MODULE (disasterEmergency)
