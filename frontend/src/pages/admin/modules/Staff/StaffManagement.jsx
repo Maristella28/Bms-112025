@@ -246,11 +246,29 @@ const StaffManagement = () => {
           // Set the nested permission value
           subPermission.sub_permissions[nestedKey] = normalizedValue;
           
+          // Debug log for residents
+          if (uiKey === 'residents' && subKey === 'main_records') {
+            console.log(`mapApiToUiPermissions: Setting ${nestedKey} = ${normalizedValue}`, {
+              apiKey,
+              uiKey,
+              subKey,
+              nestedKey,
+              value,
+              normalizedValue
+            });
+          }
+          
           // If nested permission is true, ensure all parent permissions are also true
           if (normalizedValue) {
             subPermission.access = true;
             base[uiKey].access = true;
           }
+        } else {
+          console.warn(`mapApiToUiPermissions: subPermission for ${uiKey}.${subKey} is not an object with sub_permissions`, {
+            subPermission,
+            apiKey,
+            parts
+          });
         }
       }
     });
@@ -660,6 +678,22 @@ const StaffManagement = () => {
   useEffect(() => {
     fetchStaff();
   }, []);
+
+  // Debug: Log whenever editingStaff changes
+  useEffect(() => {
+    if (editingStaff && editingStaff.module_permissions) {
+      const residentsMainRecords = editingStaff.module_permissions.residents?.sub_permissions?.main_records;
+      if (residentsMainRecords) {
+        console.log('🔄 editingStaff state changed - Residents main_records:', {
+          access: residentsMainRecords.access,
+          edit: residentsMainRecords.sub_permissions?.edit,
+          disable: residentsMainRecords.sub_permissions?.disable,
+          view: residentsMainRecords.sub_permissions?.view,
+          fullStructure: residentsMainRecords
+        });
+      }
+    }
+  }, [editingStaff]);
 
   const handleDeactivate = async (staffId) => {
     try {
@@ -1224,6 +1258,18 @@ const StaffManagement = () => {
                                 console.log('Residents permissions:', JSON.stringify(uiPermissions.residents, null, 2));
                                 console.log('Main records nested:', JSON.stringify(uiPermissions.residents?.sub_permissions?.main_records, null, 2));
                                 
+                                // CRITICAL DEBUG: Check what we have before normalization
+                                if (uiPermissions.residents?.sub_permissions?.main_records) {
+                                  console.log('🔍 BEFORE normalization - Residents main_records:', {
+                                    access: uiPermissions.residents.sub_permissions.main_records.access,
+                                    hasSubPerms: !!uiPermissions.residents.sub_permissions.main_records.sub_permissions,
+                                    edit: uiPermissions.residents.sub_permissions.main_records.sub_permissions?.edit,
+                                    disable: uiPermissions.residents.sub_permissions.main_records.sub_permissions?.disable,
+                                    view: uiPermissions.residents.sub_permissions.main_records.sub_permissions?.view,
+                                    allNested: uiPermissions.residents.sub_permissions.main_records.sub_permissions
+                                  });
+                                }
+                                
                                 // Now ensure all nested permissions from default structure exist
                                 // This merges the existing values with the default structure
                                 const normalizedPermissions = JSON.parse(JSON.stringify(defaultPermissions)); // Start with defaults
@@ -1254,8 +1300,18 @@ const StaffManagement = () => {
                                         // Preserve all nested permission values
                                         Object.keys(defaultSubPerm.sub_permissions).forEach(nestedKey => {
                                           const existingNestedValue = existingSubPerm?.sub_permissions?.[nestedKey];
-                                          normalizedPermissions[uiKey].sub_permissions[subKey].sub_permissions[nestedKey] = 
-                                            existingNestedValue !== undefined ? existingNestedValue : false;
+                                          const finalValue = existingNestedValue !== undefined ? Boolean(existingNestedValue) : false;
+                                          normalizedPermissions[uiKey].sub_permissions[subKey].sub_permissions[nestedKey] = finalValue;
+                                          
+                                          // Debug log for residents main_records
+                                          if (uiKey === 'residents' && subKey === 'main_records') {
+                                            console.log(`Normalizing nested ${nestedKey}:`, {
+                                              existingNestedValue,
+                                              finalValue,
+                                              existingSubPerm: existingSubPerm,
+                                              hasSubPerms: !!existingSubPerm?.sub_permissions
+                                            });
+                                          }
                                         });
                                       } else {
                                         // Simple boolean sub-permission
@@ -1273,6 +1329,17 @@ const StaffManagement = () => {
                                 
                                 console.log('Final normalized permissions:', JSON.stringify(normalizedPermissions, null, 2));
                                 console.log('Residents main_records after normalization:', JSON.stringify(normalizedPermissions.residents?.sub_permissions?.main_records, null, 2));
+                                
+                                // CRITICAL: Verify the nested permissions are preserved
+                                const residentsMainRecords = normalizedPermissions.residents?.sub_permissions?.main_records;
+                                if (residentsMainRecords) {
+                                  console.log('✅ Residents main_records nested permissions:', {
+                                    edit: residentsMainRecords.sub_permissions?.edit,
+                                    disable: residentsMainRecords.sub_permissions?.disable,
+                                    view: residentsMainRecords.sub_permissions?.view,
+                                    access: residentsMainRecords.access
+                                  });
+                                }
                                 
                                 setEditingStaff({
                                   ...member,
