@@ -481,37 +481,34 @@ class StaffController extends Controller
                 'current_has_view' => isset($currentDecoded['residentsRecords_main_records_view']) ? $currentDecoded['residentsRecords_main_records_view'] : 'NOT_SET',
             ]);
             
-            // Use the EXACT same approach as the regular update() method
-            // Set the attribute and check if it's dirty before saving
-            $staff->module_permissions = $finalPermissions;
-            $isDirty = $staff->isDirty('module_permissions');
+            // ALWAYS use direct DB update to bypass Laravel's change detection issues with arrays
+            // Laravel's array casting sometimes doesn't detect changes correctly
+            $updateResult = \DB::table('staff')
+                ->where('id', $staff->id)
+                ->update([
+                    'module_permissions' => $finalPermissions,
+                    'updated_at' => now()
+                ]);
             
-            Log::info('Before saving permissions', [
+            Log::info('Direct DB update executed', [
                 'staff_id' => $staff->id,
-                'is_dirty' => $isDirty,
+                'update_result' => $updateResult,
+                'rows_affected' => $updateResult,
                 'final_permissions_count' => count($finalPermissions),
                 'residentsRecords_main_records_view' => $finalPermissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
+                'residentsRecords_main_records_edit' => $finalPermissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
+                'residentsRecords_main_records_disable' => $finalPermissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
             ]);
             
-            // Save the model
-            $wasSaved = $staff->save();
+            // Refresh the model to get updated data
+            $staff->refresh();
             
-            // If save didn't work or model wasn't dirty (Laravel didn't detect change), force DB update
-            if (!$wasSaved || !$isDirty) {
-                Log::warning('Model save may not have worked, forcing direct DB update', [
-                    'staff_id' => $staff->id,
-                    'was_saved' => $wasSaved,
-                    'was_dirty' => $isDirty
-                ]);
-                \DB::table('staff')
-                    ->where('id', $staff->id)
-                    ->update(['module_permissions' => $finalPermissions]);
-                $staff->refresh(); // Refresh to get the updated data
-            }
+            // Update the model's attribute to keep it in sync
+            $staff->module_permissions = $finalPermissions;
             
             Log::info('Staff permissions saved', [
                 'staff_id' => $staff->id,
-                'was_saved' => $wasSaved,
+                'update_result' => $updateResult,
                 'saved_permissions' => $staff->module_permissions,
                 'residentsRecords_main_records_view' => $staff->module_permissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
                 'residentsRecords_main_records_edit' => $staff->module_permissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',

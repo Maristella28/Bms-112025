@@ -1464,22 +1464,47 @@ const StaffManagement = () => {
                                                 console.log(`Toggling ${moduleKey}.${subKey}.${nestedKey} to ${newValue}`);
                                                 
                                                 setEditingStaff(prev => {
+                                                  // Get the default structure for this sub-permission
+                                                  const defaultSubPerm = defaultPermissions[moduleKey]?.sub_permissions?.[subKey];
+                                                  const defaultNested = defaultSubPerm?.sub_permissions || {};
+                                                  
+                                                  // Get current nested permissions
+                                                  const currentNested = subPermission.sub_permissions || {};
+                                                  
+                                                  // Preserve all existing nested permissions and update only the one being toggled
+                                                  const updatedNested = {};
+                                                  
+                                                  // First, include all keys from default structure
+                                                  Object.keys(defaultNested).forEach(key => {
+                                                    if (key === nestedKey) {
+                                                      // Update the one being toggled
+                                                      updatedNested[key] = newValue;
+                                                    } else {
+                                                      // Preserve existing value or default to false
+                                                      updatedNested[key] = currentNested[key] !== undefined ? currentNested[key] : false;
+                                                    }
+                                                  });
+                                                  
+                                                  // Also include any keys that exist in current but not in default (for safety)
+                                                  Object.keys(currentNested).forEach(key => {
+                                                    if (!updatedNested.hasOwnProperty(key)) {
+                                                      updatedNested[key] = currentNested[key];
+                                                    }
+                                                  });
+                                                  
                                                   const updatedPermission = {
                                                     ...currentPermission,
                                                     sub_permissions: {
                                                       ...(currentPermission.sub_permissions || {}),
                                                       [subKey]: {
                                                         ...subPermission,
-                                                        access: newValue ? true : subPermission.access, // Auto-enable parent if nested is enabled
-                                                        sub_permissions: {
-                                                          ...(subPermission.sub_permissions || {}),
-                                                          [nestedKey]: newValue
-                                                        }
+                                                        access: newValue ? true : (Object.values(updatedNested).some(v => v === true) ? subPermission.access : false),
+                                                        sub_permissions: updatedNested
                                                       }
                                                     }
                                                   };
                                                   
-                                                  // If enabling a nested permission, ensure module and sub-module access are true
+                                                  // If enabling a nested permission, ensure module access is true
                                                   if (newValue) {
                                                     updatedPermission.access = true;
                                                   }
@@ -1493,6 +1518,7 @@ const StaffManagement = () => {
                                                   };
                                                   
                                                   console.log('Updated state:', JSON.stringify(updated.module_permissions[moduleKey], null, 2));
+                                                  console.log('Nested permissions preserved:', Object.keys(updatedNested));
                                                   return updated;
                                                 });
                                               }}
