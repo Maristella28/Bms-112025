@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon, BellIcon } from '@heroicons/react/24/solid';
+import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon, BellIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import axios from '../../../../utils/axiosConfig';
@@ -71,6 +71,7 @@ const SocialServices = () => {
   const [programFormSuccess, setProgramFormSuccess] = useState('');
   const [showNotificationSuccessModal, setShowNotificationSuccessModal] = useState(false);
   const [notificationDetails, setNotificationDetails] = useState(null);
+  const [showAssistanceTypeInfo, setShowAssistanceTypeInfo] = useState(false);
   
   // User-friendly UI states
   const [showGlossary, setShowGlossary] = useState(false);
@@ -3720,7 +3721,17 @@ const SocialServices = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-blue-700 mb-1">Assistance Type</label>
+                      <div className="flex items-center gap-2 mb-1">
+                        <label className="block text-sm font-medium text-blue-700">Assistance Type</label>
+                        <button
+                          type="button"
+                          onClick={() => setShowAssistanceTypeInfo(true)}
+                          className="text-blue-500 hover:text-blue-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-300 rounded-full p-1"
+                          title="Learn more about assistance types"
+                        >
+                          <InformationCircleIcon className="w-5 h-5" />
+                        </button>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           type="button"
@@ -4407,6 +4418,249 @@ const SocialServices = () => {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assistance Type Information Modal */}
+      {showAssistanceTypeInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className="bg-white rounded-xl sm:rounded-2xl lg:rounded-3xl shadow-2xl max-w-xs sm:max-w-sm md:max-w-2xl lg:max-w-4xl w-full max-h-[95vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-500 to-indigo-600 px-3 sm:px-4 lg:px-6 py-3 sm:py-4 rounded-t-xl sm:rounded-t-2xl z-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base sm:text-lg lg:text-xl font-bold text-white flex items-center gap-1.5 sm:gap-2">
+                  <InformationCircleIcon className="w-5 h-5 sm:w-6 sm:h-6 lg:w-7 lg:h-7" />
+                  Assistance Types Guide
+                </h2>
+                <button 
+                  onClick={() => setShowAssistanceTypeInfo(false)}
+                  className="text-white hover:text-gray-200 transition-colors"
+                >
+                  <XMarkIcon className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-4 sm:p-6 space-y-6">
+              {/* Monetary Assistance Section */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 sm:p-6 border border-green-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <CreditCardIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-green-800">Assistance Types With Money (Monetary Assistance)</h3>
+                    <p className="text-sm text-green-600">Programs that provide financial support or cash assistance</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Financial Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-green-100">
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">💰</span> Financial Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Cash Assistance</li>
+                      <li>• Emergency Cash Aid</li>
+                      <li>• Burial Assistance (if financial)</li>
+                      <li>• Medical Financial Support</li>
+                      <li>• Educational Financial Aid</li>
+                      <li>• Transportation Allowance</li>
+                    </ul>
+                  </div>
+
+                  {/* Livelihood & Employment */}
+                  <div className="bg-white rounded-lg p-4 border border-green-100">
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">💰</span> Livelihood & Employment (Monetary Programs)
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Livelihood Starter Kit (if given in cash value)</li>
+                      <li>• Small Business Grant</li>
+                      <li>• Training Allowance (if included)</li>
+                    </ul>
+                  </div>
+
+                  {/* Education Support */}
+                  <div className="bg-white rounded-lg p-4 border border-green-100">
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">💰</span> Education Support
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Scholarship Allowance</li>
+                      <li>• Student Allowance</li>
+                    </ul>
+                  </div>
+
+                  {/* Housing Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-green-100">
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">💰</span> Housing Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Rental Subsidy</li>
+                      <li>• Financial Housing Repair Assistance (if cash is given)</li>
+                    </ul>
+                  </div>
+
+                  {/* Disaster / Emergency */}
+                  <div className="bg-white rounded-lg p-4 border border-green-100">
+                    <h4 className="font-semibold text-green-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">💰</span> Disaster / Emergency
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Financial Assistance for disaster victims</li>
+                      <li>• Cash Relief for fire victims</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Non-Monetary Assistance Section */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 sm:p-6 border border-blue-200">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <HeartIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-blue-800">Assistance Types Without Money (Non-monetary Assistance)</h3>
+                    <p className="text-sm text-blue-600">Programs that provide services, goods, or support without cash</p>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {/* Medical / Health */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🏥</span> Medical / Health
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Free Medicines</li>
+                      <li>• Medical Check-up</li>
+                      <li>• Laboratory Support (X-ray, blood test, etc.)</li>
+                      <li>• Vaccination</li>
+                      <li>• Dental Services</li>
+                      <li>• Mental Health Support</li>
+                    </ul>
+                  </div>
+
+                  {/* Food & Basic Needs */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🍱</span> Food & Basic Needs
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Food Packs / Relief Goods</li>
+                      <li>• Hot Meals</li>
+                      <li>• Grocery Coupons (non-cash)</li>
+                      <li>• Hygiene Kits</li>
+                      <li>• Nutrition Support Program</li>
+                    </ul>
+                  </div>
+
+                  {/* Livelihood & Employment */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🧰</span> Livelihood & Employment
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Skills Training / Workshops</li>
+                      <li>• Employment Referral</li>
+                    </ul>
+                  </div>
+
+                  {/* Disaster & Emergency Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🚨</span> Disaster & Emergency Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Evacuation Support</li>
+                      <li>• Emergency Shelter</li>
+                      <li>• Clothing Assistance</li>
+                      <li>• Disaster Relief Operations (non-cash supplies)</li>
+                    </ul>
+                  </div>
+
+                  {/* Social Welfare Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">👥</span> Social Welfare Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Senior Citizen Assistance (non-cash services)</li>
+                      <li>• PWD Assistance (non-cash)</li>
+                      <li>• Solo Parent Support</li>
+                      <li>• Youth Assistance Program</li>
+                      <li>• Family Welfare Support</li>
+                    </ul>
+                  </div>
+
+                  {/* Education Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">📚</span> Education Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• School Supplies Distribution</li>
+                      <li>• Free Training / Workshops</li>
+                      <li>• Educational Support Items (non-cash)</li>
+                    </ul>
+                  </div>
+
+                  {/* Housing Assistance */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🏚</span> Housing Assistance
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Housing Repair (materials, labor support)</li>
+                      <li>• Relocation Support (non-cash services)</li>
+                    </ul>
+                  </div>
+
+                  {/* Community Service / Barangay Programs */}
+                  <div className="bg-white rounded-lg p-4 border border-blue-100">
+                    <h4 className="font-semibold text-blue-700 mb-2 flex items-center gap-2">
+                      <span className="text-xl">🏘</span> Community Service / Barangay Programs
+                    </h4>
+                    <ul className="space-y-1 text-sm text-gray-700 ml-6">
+                      <li>• Clean-up Drive Participation</li>
+                      <li>• Community Training</li>
+                      <li>• Health Awareness Seminar</li>
+                      <li>• Feeding Program</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              {/* Helpful Note */}
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <LightBulbIcon className="w-6 h-6 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-semibold text-yellow-800 mb-1">💡 Quick Tip</h4>
+                    <p className="text-sm text-yellow-700">
+                      If your program involves giving cash, money, or financial support, select <strong>Monetary Assistance</strong>. 
+                      If it provides services, goods, or support without cash, select <strong>Non-monetary Assistance</strong>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="sticky bottom-0 bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 rounded-b-xl sm:rounded-b-2xl border-t border-gray-200">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowAssistanceTypeInfo(false)}
+                  className="px-4 sm:px-6 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium transition-all duration-300 shadow-md hover:shadow-lg"
+                >
+                  Got it!
+                </button>
+              </div>
             </div>
           </div>
         </div>
