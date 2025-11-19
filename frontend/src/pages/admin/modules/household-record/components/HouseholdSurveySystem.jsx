@@ -132,10 +132,55 @@ const HouseholdSurveySystem = ({ household, onClose, onSurveySent }) => {
       // If print method, download the PDF automatically
       if (notificationMethod === 'print' && response.data.data?.id) {
         try {
-          // Download the PDF
-          const pdfResponse = await api.get(`/admin/household-surveys/${response.data.data.id}/download-pdf`, {
-            responseType: 'blob',
-          });
+          // Download the PDF with error handling
+          let pdfResponse;
+          try {
+            pdfResponse = await api.get(`/admin/household-surveys/${response.data.data.id}/download-pdf`, {
+              responseType: 'blob',
+              validateStatus: function (status) {
+                // Don't throw error for non-2xx status, we'll handle it
+                return status >= 200 && status < 600;
+              }
+            });
+          } catch (requestErr) {
+            throw new Error('Failed to request PDF download');
+          }
+          
+          // Check if response is an error
+          if (pdfResponse.status !== 200) {
+            // Try to parse error message from blob
+            let errorMessage = 'Failed to generate PDF. Please try again.';
+            try {
+              if (pdfResponse.data instanceof Blob) {
+                const text = await pdfResponse.data.text();
+                const errorData = JSON.parse(text);
+                errorMessage = errorData.message || errorData.error || errorMessage;
+              }
+            } catch (parseErr) {
+              // If parsing fails, use status-based message
+              if (pdfResponse.status === 404) {
+                errorMessage = 'Survey not found.';
+              } else if (pdfResponse.status === 500) {
+                errorMessage = 'Server error while generating PDF. Please check the logs or try again later.';
+              }
+            }
+            throw new Error(errorMessage);
+          }
+          
+          // Verify it's actually a PDF
+          const contentType = pdfResponse.headers['content-type'] || pdfResponse.headers['Content-Type'] || '';
+          if (!contentType.includes('application/pdf')) {
+            // Might be an error JSON, try to parse it
+            if (pdfResponse.data instanceof Blob) {
+              try {
+                const text = await pdfResponse.data.text();
+                const errorData = JSON.parse(text);
+                throw new Error(errorData.message || 'Invalid response from server');
+              } catch (parseErr) {
+                throw new Error('Server returned invalid content type. Expected PDF.');
+              }
+            }
+          }
           
           // Create a blob URL and trigger download
           const blob = new Blob([pdfResponse.data], { type: 'application/pdf' });
@@ -151,7 +196,26 @@ const HouseholdSurveySystem = ({ household, onClose, onSurveySent }) => {
           setSuccess('Survey form generated and downloaded successfully!');
         } catch (pdfErr) {
           console.error('Failed to download PDF:', pdfErr);
-          setSuccess('Survey created successfully, but PDF download failed. You can download it later.');
+          
+          // Extract error message
+          let errorMessage = pdfErr.message || 'Survey created successfully, but PDF download failed.';
+          
+          // Try to get more details from response if available
+          if (pdfErr.response?.data instanceof Blob) {
+            try {
+              const text = await pdfErr.response.data.text();
+              const errorData = JSON.parse(text);
+              errorMessage = errorData.message || errorData.error || errorMessage;
+            } catch (e) {
+              // If parsing fails, keep the original message
+            }
+          }
+          
+          setError(errorMessage);
+          // Don't show success message if there's an error
+          setTimeout(() => {
+            setError(null);
+          }, 5000);
         }
       } else {
         setSuccess(`Survey sent successfully via ${notificationMethod}!`);

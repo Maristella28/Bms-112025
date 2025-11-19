@@ -32,7 +32,7 @@
             font-weight: normal;
         }
         .survey-type-badge {
-            background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+            background: #2563eb;
             color: white;
             padding: 12px 24px;
             border-radius: 8px;
@@ -42,7 +42,6 @@
             font-size: 16px;
             font-weight: 700;
             letter-spacing: 0.5px;
-            box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
         }
         .household-info {
             background-color: #f8fafc;
@@ -59,17 +58,19 @@
             padding-bottom: 5px;
         }
         .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
+            width: 100%;
             font-size: 11px;
         }
+        .info-row {
+            display: table;
+            width: 100%;
+            margin-bottom: 8px;
+        }
         .info-item {
-            display: flex;
+            display: table-row;
         }
         .info-label {
             font-weight: bold;
-            min-width: 100px;
             color: #475569;
         }
         .info-value {
@@ -160,24 +161,24 @@
 
     <div class="household-info">
         <h3>Household Information</h3>
-        <div class="info-grid">
-            <div class="info-item">
-                <span class="info-label">Household No:</span>
-                <span class="info-value">{{ $household->household_no ?? 'N/A' }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Head of Household:</span>
-                <span class="info-value">{{ $household->head_full_name ?? 'N/A' }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Address:</span>
-                <span class="info-value">{{ $household->address ?? 'N/A' }}</span>
-            </div>
-            <div class="info-item">
-                <span class="info-label">Contact:</span>
-                <span class="info-value">{{ $household->mobilenumber ?? 'N/A' }}</span>
-            </div>
-        </div>
+        <table class="info-grid" style="width: 100%; border-collapse: collapse;">
+            <tr class="info-item">
+                <td class="info-label" style="width: 40%; padding: 5px 0;">Household No:</td>
+                <td class="info-value" style="padding: 5px 0;">{{ $household->household_no ?? 'N/A' }}</td>
+            </tr>
+            <tr class="info-item">
+                <td class="info-label" style="width: 40%; padding: 5px 0;">Head of Household:</td>
+                <td class="info-value" style="padding: 5px 0;">{{ $household->head_full_name ?? 'N/A' }}</td>
+            </tr>
+            <tr class="info-item">
+                <td class="info-label" style="width: 40%; padding: 5px 0;">Address:</td>
+                <td class="info-value" style="padding: 5px 0;">{{ $household->address ?? 'N/A' }}</td>
+            </tr>
+            <tr class="info-item">
+                <td class="info-label" style="width: 40%; padding: 5px 0;">Contact:</td>
+                <td class="info-value" style="padding: 5px 0;">{{ $household->mobilenumber ?? 'N/A' }}</td>
+            </tr>
+        </table>
     </div>
 
     <div class="survey-details">
