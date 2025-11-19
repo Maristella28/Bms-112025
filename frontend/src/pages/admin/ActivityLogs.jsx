@@ -184,6 +184,12 @@ const ActivityLogs = () => {
   const [counts, setCounts] = useState(initialCounts);
   const [currentLogTotal, setCurrentLogTotal] = useState(0);
   const [quickDateFilter, setQuickDateFilter] = useState(''); // Quick date filter selection
+  const [inactiveResidents, setInactiveResidents] = useState([]);
+  const [inactiveResidentsLoading, setInactiveResidentsLoading] = useState(false);
+  const [inactiveResidentsPage, setInactiveResidentsPage] = useState(1);
+  const [inactiveResidentsTotal, setInactiveResidentsTotal] = useState(0);
+  const [flaggedResidentsCount, setFlaggedResidentsCount] = useState(0);
+  const [showInactiveResidents, setShowInactiveResidents] = useState(false);
 
   const adminLogs = filterLogsByRole(logs, 'admin');
   const residentLogs = filterLogsByRole(logs, 'resident');
@@ -195,7 +201,14 @@ const ActivityLogs = () => {
     fetchStatistics();
     fetchSecurityAlerts();
     fetchAuditSummary();
+    fetchFlaggedResidentsCount();
   }, [filters.page, filters.per_page, filters.user_type, filters.action, filters.model_type, filters.search, filters.date_from, filters.date_to]);
+
+  useEffect(() => {
+    if (showInactiveResidents) {
+      fetchInactiveResidents();
+    }
+  }, [showInactiveResidents, inactiveResidentsPage]);
 
   const fetchLogs = async () => {
     try {
@@ -265,6 +278,47 @@ const ActivityLogs = () => {
       setAuditSummary(response.data.audit_summary);
     } catch (err) {
       console.error('Error fetching audit summary:', err);
+    }
+  };
+
+  const fetchInactiveResidents = async () => {
+    try {
+      setInactiveResidentsLoading(true);
+      const response = await axios.get(`/admin/activity-logs/inactive-residents?page=${inactiveResidentsPage}&per_page=20`);
+      setInactiveResidents(response.data.inactive_residents || []);
+      setInactiveResidentsTotal(response.data.total || 0);
+    } catch (err) {
+      console.error('Error fetching inactive residents:', err);
+      setError('Failed to fetch inactive residents');
+    } finally {
+      setInactiveResidentsLoading(false);
+    }
+  };
+
+  const fetchFlaggedResidentsCount = async () => {
+    try {
+      const response = await axios.get('/admin/activity-logs/flagged-residents-count');
+      setFlaggedResidentsCount(response.data.flagged_count || 0);
+    } catch (err) {
+      console.error('Error fetching flagged residents count:', err);
+    }
+  };
+
+  const handleFlagInactiveResidents = async () => {
+    if (!window.confirm('This will flag all residents with no activity for 1 year as "For Review". Continue?')) {
+      return;
+    }
+
+    try {
+      const response = await axios.post('/admin/activity-logs/flag-inactive-residents');
+      alert(response.data.message || 'Residents flagged successfully');
+      fetchFlaggedResidentsCount();
+      if (showInactiveResidents) {
+        fetchInactiveResidents();
+      }
+    } catch (err) {
+      console.error('Error flagging inactive residents:', err);
+      alert('Failed to flag inactive residents');
     }
   };
 
@@ -419,6 +473,37 @@ const ActivityLogs = () => {
           </div>
         )}
 
+        {/* Flagged Residents Notification */}
+        {flaggedResidentsCount > 0 && (
+          <div className="bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-xl p-6 mb-6 animate-fade-in shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-full flex items-center justify-center shadow-lg">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-orange-900 flex items-center gap-2">
+                    Residents Flagged for Review
+                    <span className="px-3 py-1 bg-red-600 text-white text-sm rounded-full font-bold">
+                      {flaggedResidentsCount}
+                    </span>
+                  </h3>
+                  <p className="text-orange-800 text-sm mt-1">
+                    {flaggedResidentsCount} resident{flaggedResidentsCount !== 1 ? 's' : ''} {flaggedResidentsCount !== 1 ? 'have' : 'has'} been flagged for review due to inactivity (no login/activity for 1 year)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInactiveResidents(!showInactiveResidents)}
+                className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105"
+              >
+                <EyeIcon className="w-5 h-5" />
+                {showInactiveResidents ? 'Hide' : 'View'} Inactive Residents
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Enhanced Statistics Cards */}
         {statistics && (
           <div className="mb-12">
@@ -471,6 +556,126 @@ const ActivityLogs = () => {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Inactive Residents Section */}
+        {showInactiveResidents && (
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-8 transition-all duration-300 hover:shadow-2xl w-full">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                  <ExclamationTriangleIcon className="w-6 h-6 text-orange-600" />
+                  Inactive Residents (No Activity for 1 Year)
+                </h3>
+                <p className="text-gray-600 text-sm">Residents with no login or profile update activity in the past year</p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleFlagInactiveResidents}
+                  className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105"
+                >
+                  <ExclamationTriangleIcon className="w-5 h-5" />
+                  Flag All for Review
+                </button>
+                <button
+                  onClick={() => setShowInactiveResidents(false)}
+                  className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                  Close
+                </button>
+              </div>
+            </div>
+
+            {inactiveResidentsLoading ? (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading inactive residents...</p>
+              </div>
+            ) : inactiveResidents.length === 0 ? (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircleIcon className="w-8 h-8 text-green-600" />
+                </div>
+                <p className="text-gray-600 font-semibold text-lg">No inactive residents found</p>
+                <p className="text-gray-400 text-sm">All residents have been active in the past year</p>
+              </div>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gradient-to-r from-orange-50 to-red-50 border-b-2 border-orange-200">
+                      <tr>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Resident ID</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Name</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Email</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Last Activity</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Days Inactive</th>
+                        <th className="px-6 py-4 text-left font-bold text-slate-700 text-sm uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {inactiveResidents.map((resident) => (
+                        <tr key={resident.id} className="hover:bg-orange-50 transition-colors">
+                          <td className="px-6 py-4 font-mono text-sm text-gray-700">{resident.resident_id}</td>
+                          <td className="px-6 py-4 font-medium text-gray-900">{resident.full_name}</td>
+                          <td className="px-6 py-4 text-gray-700">{resident.email || 'N/A'}</td>
+                          <td className="px-6 py-4 text-gray-700">
+                            {format(new Date(resident.last_activity_date), 'MMM dd, yyyy')}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              resident.days_inactive >= 365
+                                ? 'bg-red-100 text-red-800'
+                                : resident.days_inactive >= 180
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {resident.days_inactive} days
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            {resident.for_review ? (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 border border-orange-300">
+                                For Review
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800">
+                                Not Flagged
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {inactiveResidentsTotal > 20 && (
+                  <div className="flex justify-center mt-6">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setInactiveResidentsPage(prev => Math.max(1, prev - 1))}
+                        disabled={inactiveResidentsPage === 1}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {inactiveResidentsPage} of {Math.ceil(inactiveResidentsTotal / 20)}
+                      </span>
+                      <button
+                        onClick={() => setInactiveResidentsPage(prev => prev + 1)}
+                        disabled={inactiveResidentsPage >= Math.ceil(inactiveResidentsTotal / 20)}
+                        className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-100"
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 

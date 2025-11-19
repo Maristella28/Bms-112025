@@ -3,9 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Models\ActivityLog;
+use App\Models\Resident;
+use App\Models\User;
 use App\Services\ActivityLogService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ActivityLogController extends Controller
 {
@@ -278,6 +282,204 @@ class ActivityLogController extends Controller
             ]);
             return response()->json([
                 'message' => 'Error fetching audit summary',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get inactive residents (no login/activity for 1 year)
+     */
+    public function inactiveResidents(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'admin' && $user->role !== 'staff') {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $oneYearAgo = Carbon::now()->subYear();
+            $page = $request->get('page', 1);
+            $perPage = $request->get('per_page', 20);
+
+            // Get all user IDs with recent activity (login or profile updates)
+            $activeUserIds = ActivityLog::whereIn('action', ['login', 'Resident.Profile.Updated', 'Resident.Updated'])
+                ->where('created_at', '>=', $oneYearAgo)
+                ->whereNotNull('user_id')
+                ->distinct()
+                ->pluck('user_id')
+                ->toArray();
+
+            // Get residents with user accounts that are NOT in the active list
+            $inactiveResidents = Resident::with(['user'])
+                ->whereNotNull('user_id');
+            
+            // Only apply whereNotIn if there are active users, otherwise all residents are inactive
+            if (!empty($activeUserIds)) {
+                $inactiveResidents = $inactiveResidents->whereNotIn('user_id', $activeUserIds);
+            }
+                ->select('residents.*')
+                ->selectRaw('(
+                    SELECT MAX(created_at) 
+                    FROM activity_logs 
+                    WHERE user_id = residents.user_id 
+                    AND action IN ("login", "Resident.Profile.Updated", "Resident.Updated")
+                ) as last_activity_date');
+
+            // Get total count before pagination
+            $total = $inactiveResidents->count();
+
+            // Apply pagination and get results
+            $inactiveResidents = $inactiveResidents->skip(($page - 1) * $perPage)
+                ->take($perPage)
+                ->get()
+                ->map(function($resident) use ($oneYearAgo) {
+                    $lastActivity = ActivityLog::where('user_id', $resident->user_id)
+                        ->whereIn('action', ['login', 'Resident.Profile.Updated', 'Resident.Updated'])
+                        ->orderBy('created_at', 'desc')
+                        ->first();
+
+                    $lastActivityDate = $lastActivity 
+                        ? Carbon::parse($lastActivity->created_at)
+                        : Carbon::parse($resident->created_at);
+
+                    $daysInactive = $lastActivityDate->diffInDays(Carbon::now());
+
+                    return [
+                        'id' => $resident->id,
+                        'resident_id' => $resident->resident_id,
+                        'first_name' => $resident->first_name,
+                        'middle_name' => $resident->middle_name,
+                        'last_name' => $resident->last_name,
+                        'name_suffix' => $resident->name_suffix,
+                        'email' => $resident->email,
+                        'contact_number' => $resident->contact_number,
+                        'full_name' => trim("{$resident->first_name} {$resident->middle_name} {$resident->last_name} {$resident->name_suffix}"),
+                        'user_id' => $resident->user_id,
+                        'last_activity_date' => $lastActivityDate->toDateTimeString(),
+                        'days_inactive' => $daysInactive,
+                        'for_review' => $resident->for_review ?? false,
+                        'user' => $resident->user ? [
+                            'id' => $resident->user->id,
+                            'name' => $resident->user->name,
+                            'email' => $resident->user->email,
+                        ] : null,
+                    ];
+                })
+                ->sortByDesc('days_inactive')
+                ->values();
+
+            return response()->json([
+                'inactive_residents' => $inactiveResidents,
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
+                'last_page' => ceil($total / $perPage),
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching inactive residents: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'message' => 'Error fetching inactive residents',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Flag residents as "For Review" based on inactivity
+     */
+    public function flagInactiveResidents(Request $request)
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'admin' && $user->role !== 'staff') {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $oneYearAgo = Carbon::now()->subYear();
+            $flaggedCount = 0;
+
+            // Get all residents with user accounts
+            $residents = Resident::with('user')
+                ->whereHas('user')
+                ->get();
+
+            foreach ($residents as $resident) {
+                if (!$resident->user_id) continue;
+
+                // Check last activity (login or profile update)
+                $lastActivity = ActivityLog::where('user_id', $resident->user_id)
+                    ->whereIn('action', ['login', 'Resident.Profile.Updated', 'Resident.Updated'])
+                    ->orderBy('created_at', 'desc')
+                    ->first();
+
+                $shouldFlag = false;
+                $lastActivityDate = null;
+
+                if ($lastActivity) {
+                    $lastActivityDate = Carbon::parse($lastActivity->created_at);
+                    $shouldFlag = $lastActivityDate->lt($oneYearAgo);
+                } else {
+                    // No activity logs at all - check creation date
+                    $createdDate = Carbon::parse($resident->created_at);
+                    $shouldFlag = $createdDate->lt($oneYearAgo);
+                    $lastActivityDate = $createdDate;
+                }
+
+                if ($shouldFlag && !$resident->for_review) {
+                    $resident->for_review = true;
+                    $resident->save();
+                    $flaggedCount++;
+                }
+            }
+
+            // Log the action
+            ActivityLogService::logAdminAction(
+                'flag_inactive_residents',
+                "Admin flagged {$flaggedCount} inactive residents for review",
+                $request
+            );
+
+            return response()->json([
+                'message' => "Successfully flagged {$flaggedCount} residents for review",
+                'flagged_count' => $flaggedCount,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error flagging inactive residents: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json([
+                'message' => 'Error flagging inactive residents',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get count of residents flagged for review
+     */
+    public function flaggedResidentsCount()
+    {
+        try {
+            $user = Auth::user();
+
+            if ($user->role !== 'admin' && $user->role !== 'staff') {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $count = Resident::where('for_review', true)->count();
+
+            return response()->json([
+                'flagged_count' => $count,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching flagged residents count: ' . $e->getMessage());
+            return response()->json([
+                'message' => 'Error fetching flagged residents count',
                 'error' => $e->getMessage()
             ], 500);
         }

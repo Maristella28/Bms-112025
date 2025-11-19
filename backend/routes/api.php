@@ -246,6 +246,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'staff', 'sanitize'])->group
     Route::get('/activity-logs/audit/summary', [ActivityLogController::class, 'auditSummary']);
     Route::post('/activity-logs/export', [ActivityLogController::class, 'export']);
     Route::delete('/activity-logs/cleanup', [ActivityLogController::class, 'cleanup']);
+    Route::get('/activity-logs/inactive-residents', [ActivityLogController::class, 'inactiveResidents']);
+    Route::post('/activity-logs/flag-inactive-residents', [ActivityLogController::class, 'flagInactiveResidents']);
+    Route::get('/activity-logs/flagged-residents-count', [ActivityLogController::class, 'flaggedResidentsCount']);
     
     // ============================================
     // 📝 FEEDBACK MODULE (shared)
