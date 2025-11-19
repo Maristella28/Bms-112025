@@ -321,12 +321,12 @@ const StaffManagement = () => {
                       normalizedValue
                     });
                   }
-                  
-                  // If nested permission is true, ensure all parent permissions are also true
-                  if (normalizedValue) {
+          
+          // If nested permission is true, ensure all parent permissions are also true
+          if (normalizedValue) {
                     subPerm.access = true;
-                    base[uiKey].access = true;
-                  }
+            base[uiKey].access = true;
+          }
                   
                   found = true;
                   break;
@@ -1336,11 +1336,11 @@ const StaffManagement = () => {
                           <div className="flex flex-wrap gap-2">
                             {/* Edit Permissions Button - Only show if user has edit permission */}
                             {canEditStaff && (
-                              <button
-                                onClick={() => {
-                                  const initialPermissions = member.module_permissions || {};
-                                  console.log('Opening permissions modal for:', member.name);
-                                  console.log('Initial permissions:', JSON.stringify(initialPermissions, null, 2));
+                            <button
+                              onClick={() => {
+                                const initialPermissions = member.module_permissions || {};
+                                console.log('Opening permissions modal for:', member.name);
+                                console.log('Initial permissions:', JSON.stringify(initialPermissions, null, 2));
                                 
                                 // Check if permissions are in API format (flat keys) or UI format (nested structure)
                                 // API format has keys like "residentsRecords_main_records_view"
@@ -1468,11 +1468,11 @@ const StaffManagement = () => {
                                 });
                                 setShowPermissionsModal(true);
                               }}
-                                className="text-green-600 hover:text-green-800 cursor-pointer p-2 rounded-lg hover:bg-green-50 transition-all duration-300 transform hover:scale-110"
-                                title="Edit Permissions"
-                              >
-                                <PencilIcon className="w-5 h-5" />
-                              </button>
+                              className="text-green-600 hover:text-green-800 cursor-pointer p-2 rounded-lg hover:bg-green-50 transition-all duration-300 transform hover:scale-110"
+                              title="Edit Permissions"
+                            >
+                              <PencilIcon className="w-5 h-5" />
+                            </button>
                             )}
                             
                             {/* View Details Button - Only show if user has view permission */}
@@ -1494,13 +1494,13 @@ const StaffManagement = () => {
                             
                             {/* Disable/Deactivate Staff Button - Only show if user has disable permission */}
                             {canDisableStaff && (
-                              <button
-                                onClick={() => handleDeactivate(member.id)}
-                                className="text-red-600 hover:text-red-800 cursor-pointer p-2 rounded-lg hover:bg-red-50 transition-all duration-300 transform hover:scale-110"
-                                title="Deactivate Staff"
-                              >
-                                <XMarkIcon className="w-5 h-5" />
-                              </button>
+                            <button
+                              onClick={() => handleDeactivate(member.id)}
+                              className="text-red-600 hover:text-red-800 cursor-pointer p-2 rounded-lg hover:bg-red-50 transition-all duration-300 transform hover:scale-110"
+                              title="Deactivate Staff"
+                            >
+                              <XMarkIcon className="w-5 h-5" />
+                            </button>
                             )}
                             
                             {/* Show message if no actions are available */}
@@ -1656,7 +1656,7 @@ const StaffManagement = () => {
                                         setEditingStaff(prev => {
                                           const prevModulePerm = prev.module_permissions?.[moduleKey] || { access: false, sub_permissions: {} };
                                           
-                                          if (hasNestedSubPermissions) {
+                                        if (hasNestedSubPermissions) {
                                             // Handle nested sub-permissions (like main_records with edit/disable/view)
                                             // When toggling Main Records: if ON, enable all nested; if OFF, disable all
                                             const updatedNested = Object.keys(subDefault.sub_permissions).reduce((acc, nestedKey) => {
@@ -1665,42 +1665,42 @@ const StaffManagement = () => {
                                             }, {});
                                             
                                             return {
-                                              ...prev,
-                                              module_permissions: {
-                                                ...(prev.module_permissions || {}),
-                                                [moduleKey]: {
+                                        ...prev,
+                                        module_permissions: {
+                                          ...(prev.module_permissions || {}),
+                                          [moduleKey]: {
                                                   ...prevModulePerm,
                                                   access: newValue ? true : prevModulePerm.access, // Keep module access if enabling
-                                                  sub_permissions: {
+                                            sub_permissions: {
                                                     ...(prevModulePerm.sub_permissions || {}),
-                                                    [subKey]: {
-                                                      access: newValue,
+                                                  [subKey]: {
+                                                    access: newValue,
                                                       sub_permissions: updatedNested
-                                                    }
                                                   }
-                                                }
-                                              }
+                                            }
+                                          }
+                                        }
                                             };
-                                          } else {
+                                        } else {
                                             // Handle simple boolean sub-permission (like programs, beneficiaries, document_requests, asset_management)
                                             // If enabling a sub-permission, ensure the parent module is also enabled
                                             const updatedModuleAccess = newValue ? true : prevModulePerm.access;
                                             
                                             return {
-                                              ...prev,
-                                              module_permissions: {
-                                                ...(prev.module_permissions || {}),
-                                                [moduleKey]: {
+                                            ...prev,
+                                            module_permissions: {
+                                              ...(prev.module_permissions || {}),
+                                              [moduleKey]: {
                                                   ...prevModulePerm,
                                                   access: updatedModuleAccess,
-                                                  sub_permissions: {
+                                                sub_permissions: {
                                                     ...(prevModulePerm.sub_permissions || {}),
-                                                    [subKey]: newValue
-                                                  }
+                                                  [subKey]: newValue
                                                 }
                                               }
+                                            }
                                             };
-                                          }
+                                        }
                                         });
                                     }}
                                     className="sr-only peer"

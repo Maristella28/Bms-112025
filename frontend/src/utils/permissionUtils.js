@@ -140,18 +140,27 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
     // Check directly in staffPermissions (which should be module_permissions from backend)
     if (staffPermissions[flatKey] !== undefined) {
       const result = Boolean(staffPermissions[flatKey]);
-      console.log(`canPerformAction: Found flat key "${flatKey}" = ${result}`);
+      // Only log for debugging when checking residents permissions
+      if (backendKey === 'residentsRecords') {
+        console.log(`canPerformAction: Found flat key "${flatKey}" = ${result}`, {
+          rawValue: staffPermissions[flatKey],
+          staffPermissionsKeys: Object.keys(staffPermissions).filter(k => k.includes('residents'))
+        });
+      }
       return result;
     }
     
     // If flat key doesn't exist, the action is NOT permitted
     // Don't fall through to module permission check - specific actions require explicit permission
-    console.log(`canPerformAction: Flat key "${flatKey}" not found - action NOT permitted`);
-    
-    // Also check all keys to see what's available (for debugging)
-    const availableKeys = Object.keys(staffPermissions).filter(k => k.includes(backendKey));
-    if (availableKeys.length > 0) {
-      console.log(`canPerformAction: Looking for "${flatKey}", available keys:`, availableKeys);
+    // Only log for debugging when checking residents permissions
+    if (backendKey === 'residentsRecords') {
+      const availableKeys = Object.keys(staffPermissions).filter(k => k.includes(backendKey));
+      console.log(`canPerformAction: Flat key "${flatKey}" not found - action NOT permitted`, {
+        lookingFor: flatKey,
+        availableKeys: availableKeys,
+        allKeys: Object.keys(staffPermissions),
+        staffPermissions: staffPermissions
+      });
     }
     
     // Return false - specific action permission is required

@@ -716,7 +716,7 @@ const AvatarImg = ({ avatarPath }) => {
 };
 
 // Actions Dropdown Component for Residents
-const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
+const ActionsDropdown = ({ resident, onEdit, onDisable, onView }) => {
   const authContext = useAuth();
   const user = authContext?.user;
   const { canPerformAction } = usePermissions();
@@ -725,21 +725,32 @@ const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
   const [shouldFlipUp, setShouldFlipUp] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   
-  // Check permissions for edit and disable actions
-  const canEdit = user?.role === 'admin' || canPerformAction('edit', 'residents', 'main_records');
-  const canDisable = user?.role === 'admin' || canPerformAction('disable', 'residents', 'main_records');
-  const canView = user?.role === 'admin' || canPerformAction('view', 'residents', 'main_records');
+  // Check permissions for edit, view, and disable actions
+  // For staff users, check specific action permissions
+  // For admin users, always allow
+  const isAdmin = user?.role === 'admin';
+  const canEdit = isAdmin || canPerformAction('edit', 'residents', 'main_records');
+  const canDisable = isAdmin || canPerformAction('disable', 'residents', 'main_records');
+  const canView = isAdmin || canPerformAction('view', 'residents', 'main_records');
   
-  // Debug logging
+  // Debug logging for staff users
   if (user?.role === 'staff') {
+    const perms = authContext?.user?.module_permissions || {};
     console.log('ActionsDropdown permissions check:', {
+      userRole: user?.role,
+      isAdmin,
       canEdit,
       canDisable,
       canView,
-      module_permissions: authContext?.user?.module_permissions,
-      residentsRecords_main_records_edit: authContext?.user?.module_permissions?.residentsRecords_main_records_edit,
-      residentsRecords_main_records_disable: authContext?.user?.module_permissions?.residentsRecords_main_records_disable,
-      residentsRecords_main_records_view: authContext?.user?.module_permissions?.residentsRecords_main_records_view
+      module_permissions: perms,
+      residentsRecords_main_records_edit: perms.residentsRecords_main_records_edit,
+      residentsRecords_main_records_disable: perms.residentsRecords_main_records_disable,
+      residentsRecords_main_records_view: perms.residentsRecords_main_records_view,
+      allResidentsKeys: Object.keys(perms).filter(k => k.includes('residents')),
+      // Test the permission check directly
+      testEdit: canPerformAction('edit', 'residents', 'main_records'),
+      testDisable: canPerformAction('disable', 'residents', 'main_records'),
+      testView: canPerformAction('view', 'residents', 'main_records')
     });
   }
 
@@ -796,6 +807,22 @@ const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
   // Build menu items based on permissions
   const menuItems = [];
   
+  // Add View action if user has view permission
+  if (canView) {
+    menuItems.push({
+      label: 'View',
+      icon: EyeIcon,
+      onClick: () => {
+        const residentId = resident?.id || resident?.user_id;
+        if (residentId && onView) {
+          onView(residentId);
+        }
+      },
+      className: 'text-gray-700 hover:bg-blue-50 hover:text-blue-700',
+    });
+  }
+  
+  // Add Edit action if user has edit permission
   if (canEdit) {
     menuItems.push({
       label: 'Edit',
@@ -805,6 +832,7 @@ const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
     });
   }
   
+  // Add Disable action if user has disable permission
   if (canDisable) {
     menuItems.push({
       label: 'Disable',
@@ -823,8 +851,22 @@ const ActionsDropdown = ({ resident, onEdit, onDisable }) => {
     });
   }
   
+  // Debug: Log menu items for staff users
+  if (user?.role === 'staff') {
+    console.log('ActionsDropdown menu items:', {
+      menuItemsCount: menuItems.length,
+      menuItems: menuItems.map(item => item.label),
+      canView,
+      canEdit,
+      canDisable
+    });
+  }
+  
   // If no actions are available, don't show the dropdown
   if (menuItems.length === 0) {
+    if (user?.role === 'staff') {
+      console.warn('ActionsDropdown: No menu items available - all permissions are false');
+    }
     return null;
   }
 
@@ -3688,6 +3730,7 @@ const ResidentsRecords = () => {
                                 resident={{...r, id: residentPrimaryKey}}
                                 onEdit={handleUpdate}
                                 onDisable={handleDelete}
+                                onView={handleShowDetails}
                               />
                             </div>
                           </td>
