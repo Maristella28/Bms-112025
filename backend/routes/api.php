@@ -153,8 +153,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'staff', 'sanitize'])->group
     Route::get('/household-surveys', [\App\Http\Controllers\HouseholdSurveyController::class, 'index']);
     Route::get('/household-surveys/statistics', [\App\Http\Controllers\HouseholdSurveyController::class, 'getStatistics']);
     Route::post('/household-surveys/send', [\App\Http\Controllers\HouseholdSurveyController::class, 'sendSurvey']);
-    // More specific routes must come before generic {id} route
-    Route::get('/household-surveys/{id}/download-pdf', [\App\Http\Controllers\HouseholdSurveyController::class, 'downloadSurveyPdf']);
     Route::get('/household-surveys/{id}', [\App\Http\Controllers\HouseholdSurveyController::class, 'show']);
     
     // Household Survey Schedule Routes
