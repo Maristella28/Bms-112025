@@ -1111,6 +1111,23 @@ const ResidentsRecords = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   
+  // Advanced filters state
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [advancedFilters, setAdvancedFilters] = useState({
+    verification_status: '',
+    gender: '',
+    civil_status: '',
+    age_min: '',
+    age_max: '',
+    voter_status: '',
+    educational_attainment: '',
+    occupation_type: '',
+    special_category: '',
+    date_from: '',
+    date_to: '',
+    household_no: ''
+  });
+  
   // Pagination state for Resident Records
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -1303,8 +1320,76 @@ const ResidentsRecords = () => {
       }
     }
     
+    // Apply advanced filters (same logic as getFilteredResidents)
+    if (advancedFilters.verification_status) {
+      list = list.filter((r) => 
+        (r.verification_status || 'pending').toLowerCase() === advancedFilters.verification_status.toLowerCase()
+      );
+    }
+    if (advancedFilters.gender) {
+      list = list.filter((r) => 
+        (r.sex || '').toLowerCase() === advancedFilters.gender.toLowerCase()
+      );
+    }
+    if (advancedFilters.civil_status) {
+      list = list.filter((r) => 
+        (r.civil_status || '').toLowerCase() === advancedFilters.civil_status.toLowerCase()
+      );
+    }
+    if (advancedFilters.age_min) {
+      const minAge = parseInt(advancedFilters.age_min);
+      list = list.filter((r) => (parseInt(r.age) || 0) >= minAge);
+    }
+    if (advancedFilters.age_max) {
+      const maxAge = parseInt(advancedFilters.age_max);
+      list = list.filter((r) => (parseInt(r.age) || 0) <= maxAge);
+    }
+    if (advancedFilters.voter_status) {
+      list = list.filter((r) => 
+        (r.voter_status || '').toLowerCase().includes(advancedFilters.voter_status.toLowerCase())
+      );
+    }
+    if (advancedFilters.educational_attainment) {
+      list = list.filter((r) => 
+        (r.educational_attainment || '').toLowerCase().includes(advancedFilters.educational_attainment.toLowerCase())
+      );
+    }
+    if (advancedFilters.occupation_type) {
+      list = list.filter((r) => 
+        (r.occupation_type || '').toLowerCase().includes(advancedFilters.occupation_type.toLowerCase())
+      );
+    }
+    if (advancedFilters.special_category) {
+      list = list.filter((r) => {
+        const categories = Array.isArray(r.special_categories) ? r.special_categories : [];
+        return categories.some(cat => 
+          cat.toLowerCase().includes(advancedFilters.special_category.toLowerCase())
+        );
+      });
+    }
+    if (advancedFilters.date_from) {
+      const fromDate = new Date(advancedFilters.date_from);
+      list = list.filter((r) => {
+        const residentDate = new Date(r.last_modified || r.created_at || r.updated_at);
+        return residentDate >= fromDate;
+      });
+    }
+    if (advancedFilters.date_to) {
+      const toDate = new Date(advancedFilters.date_to);
+      toDate.setHours(23, 59, 59, 999);
+      list = list.filter((r) => {
+        const residentDate = new Date(r.last_modified || r.created_at || r.updated_at);
+        return residentDate <= toDate;
+      });
+    }
+    if (advancedFilters.household_no) {
+      list = list.filter((r) => 
+        (r.household_no || '').toString().toLowerCase().includes(advancedFilters.household_no.toLowerCase())
+      );
+    }
+    
     return list;
-  }, [residents, search, statusFilter]);
+  }, [residents, search, statusFilter, advancedFilters]);
 
 
 
@@ -1316,6 +1401,39 @@ const ResidentsRecords = () => {
       }
       return newFilters;
     });
+  };
+
+  // Handle advanced filter changes
+  const handleAdvancedFilterChange = (key, value) => {
+    setAdvancedFilters((prev) => ({
+      ...prev,
+      [key]: value
+    }));
+    setCurrentPage(1); // Reset to first page when filters change
+  };
+
+  // Clear all advanced filters
+  const clearAdvancedFilters = () => {
+    setAdvancedFilters({
+      verification_status: '',
+      gender: '',
+      civil_status: '',
+      age_min: '',
+      age_max: '',
+      voter_status: '',
+      educational_attainment: '',
+      occupation_type: '',
+      special_category: '',
+      date_from: '',
+      date_to: '',
+      household_no: ''
+    });
+    setCurrentPage(1);
+  };
+
+  // Check if any advanced filters are active
+  const hasActiveAdvancedFilters = () => {
+    return Object.values(advancedFilters).some(value => value !== '');
   };
 
   const fetchReports = async () => {
@@ -1363,7 +1481,9 @@ const ResidentsRecords = () => {
         resident.first_name?.toLowerCase().includes(search.toLowerCase()) ||
         resident.last_name?.toLowerCase().includes(search.toLowerCase()) ||
         resident.resident_id?.toLowerCase().includes(search.toLowerCase()) ||
-        resident.email?.toLowerCase().includes(search.toLowerCase())
+        resident.email?.toLowerCase().includes(search.toLowerCase()) ||
+        resident.mobile_number?.toLowerCase().includes(search.toLowerCase()) ||
+        resident.current_address?.toLowerCase().includes(search.toLowerCase())
       );
     }
 
@@ -1377,6 +1497,89 @@ const ResidentsRecords = () => {
           return status === statusFilter;
         });
       }
+    }
+
+    // Apply advanced filters
+    if (advancedFilters.verification_status) {
+      filtered = filtered.filter(resident => 
+        (resident.verification_status || 'pending').toLowerCase() === advancedFilters.verification_status.toLowerCase()
+      );
+    }
+
+    if (advancedFilters.gender) {
+      filtered = filtered.filter(resident => 
+        (resident.sex || '').toLowerCase() === advancedFilters.gender.toLowerCase()
+      );
+    }
+
+    if (advancedFilters.civil_status) {
+      filtered = filtered.filter(resident => 
+        (resident.civil_status || '').toLowerCase() === advancedFilters.civil_status.toLowerCase()
+      );
+    }
+
+    if (advancedFilters.age_min) {
+      const minAge = parseInt(advancedFilters.age_min);
+      filtered = filtered.filter(resident => 
+        (parseInt(resident.age) || 0) >= minAge
+      );
+    }
+
+    if (advancedFilters.age_max) {
+      const maxAge = parseInt(advancedFilters.age_max);
+      filtered = filtered.filter(resident => 
+        (parseInt(resident.age) || 0) <= maxAge
+      );
+    }
+
+    if (advancedFilters.voter_status) {
+      filtered = filtered.filter(resident => 
+        (resident.voter_status || '').toLowerCase().includes(advancedFilters.voter_status.toLowerCase())
+      );
+    }
+
+    if (advancedFilters.educational_attainment) {
+      filtered = filtered.filter(resident => 
+        (resident.educational_attainment || '').toLowerCase().includes(advancedFilters.educational_attainment.toLowerCase())
+      );
+    }
+
+    if (advancedFilters.occupation_type) {
+      filtered = filtered.filter(resident => 
+        (resident.occupation_type || '').toLowerCase().includes(advancedFilters.occupation_type.toLowerCase())
+      );
+    }
+
+    if (advancedFilters.special_category) {
+      filtered = filtered.filter(resident => {
+        const categories = Array.isArray(resident.special_categories) ? resident.special_categories : [];
+        return categories.some(cat => 
+          cat.toLowerCase().includes(advancedFilters.special_category.toLowerCase())
+        );
+      });
+    }
+
+    if (advancedFilters.date_from) {
+      const fromDate = new Date(advancedFilters.date_from);
+      filtered = filtered.filter(resident => {
+        const residentDate = new Date(resident.last_modified || resident.created_at || resident.updated_at);
+        return residentDate >= fromDate;
+      });
+    }
+
+    if (advancedFilters.date_to) {
+      const toDate = new Date(advancedFilters.date_to);
+      toDate.setHours(23, 59, 59, 999); // Include the entire day
+      filtered = filtered.filter(resident => {
+        const residentDate = new Date(resident.last_modified || resident.created_at || resident.updated_at);
+        return residentDate <= toDate;
+      });
+    }
+
+    if (advancedFilters.household_no) {
+      filtered = filtered.filter(resident => 
+        (resident.household_no || '').toString().toLowerCase().includes(advancedFilters.household_no.toLowerCase())
+      );
     }
 
     return filtered;
@@ -3707,20 +3910,288 @@ const ResidentsRecords = () => {
                       </div>
 
                       {/* Modern Advanced Filter Button */}
-                      <button className="group/advanced relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-6 py-3.5 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-500/40 overflow-hidden w-full md:w-auto">
+                      <button 
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                        className={`group/advanced relative bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-700 hover:via-purple-700 hover:to-pink-700 text-white px-6 py-3.5 rounded-xl text-sm font-bold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-purple-500/40 overflow-hidden w-full md:w-auto ${showAdvancedFilters ? 'ring-4 ring-purple-300' : ''}`}
+                      >
                         {/* Shine Effect */}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover/advanced:translate-x-full transition-transform duration-1000"></div>
                         
                         <div className="relative flex items-center justify-center gap-2">
-                          <FunnelIcon className="w-4 h-4 group-hover/advanced:rotate-180 transition-transform duration-500" />
+                          <FunnelIcon className={`w-4 h-4 transition-transform duration-500 ${showAdvancedFilters ? 'rotate-180' : ''}`} />
                           <span className="hidden md:inline">Advanced Filters</span>
                           <span className="md:hidden">Filters</span>
-                          {statusFilter && (
+                          {(statusFilter || hasActiveAdvancedFilters()) && (
                             <span className="ml-1 w-2 h-2 bg-white rounded-full animate-pulse"></span>
                           )}
                         </div>
                       </button>
                     </div>
+
+                    {/* Advanced Filters Panel */}
+                    {showAdvancedFilters && (
+                      <div className="mt-4 bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 rounded-2xl p-6 border-2 border-indigo-200/50 shadow-xl animate-fade-in">
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-2">
+                            <FunnelIcon className="w-5 h-5 text-indigo-600" />
+                            <h3 className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+                              Advanced Filters
+                            </h3>
+                            {hasActiveAdvancedFilters() && (
+                              <span className="px-2 py-1 bg-indigo-600 text-white text-xs font-bold rounded-full">
+                                Active
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            onClick={clearAdvancedFilters}
+                            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium flex items-center gap-1 transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                            Clear All
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {/* Verification Status */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Verification Status</label>
+                            <select
+                              value={advancedFilters.verification_status}
+                              onChange={(e) => handleAdvancedFilterChange('verification_status', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">All</option>
+                              <option value="pending">Pending</option>
+                              <option value="approved">Approved</option>
+                              <option value="denied">Denied</option>
+                            </select>
+                          </div>
+
+                          {/* Gender */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+                            <select
+                              value={advancedFilters.gender}
+                              onChange={(e) => handleAdvancedFilterChange('gender', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">All</option>
+                              <option value="Male">Male</option>
+                              <option value="Female">Female</option>
+                            </select>
+                          </div>
+
+                          {/* Civil Status */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Civil Status</label>
+                            <select
+                              value={advancedFilters.civil_status}
+                              onChange={(e) => handleAdvancedFilterChange('civil_status', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">All</option>
+                              <option value="Single">Single</option>
+                              <option value="Married">Married</option>
+                              <option value="Widowed">Widowed</option>
+                              <option value="Divorced">Divorced</option>
+                              <option value="Separated">Separated</option>
+                            </select>
+                          </div>
+
+                          {/* Age Range */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Min Age</label>
+                            <input
+                              type="number"
+                              value={advancedFilters.age_min}
+                              onChange={(e) => handleAdvancedFilterChange('age_min', e.target.value)}
+                              placeholder="Min"
+                              min="0"
+                              max="120"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Max Age</label>
+                            <input
+                              type="number"
+                              value={advancedFilters.age_max}
+                              onChange={(e) => handleAdvancedFilterChange('age_max', e.target.value)}
+                              placeholder="Max"
+                              min="0"
+                              max="120"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Voter Status */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Voter Status</label>
+                            <select
+                              value={advancedFilters.voter_status}
+                              onChange={(e) => handleAdvancedFilterChange('voter_status', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            >
+                              <option value="">All</option>
+                              <option value="registered">Registered</option>
+                              <option value="unregistered">Unregistered</option>
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                            </select>
+                          </div>
+
+                          {/* Educational Attainment */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Educational Attainment</label>
+                            <input
+                              type="text"
+                              value={advancedFilters.educational_attainment}
+                              onChange={(e) => handleAdvancedFilterChange('educational_attainment', e.target.value)}
+                              placeholder="e.g., Elementary, High School"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Occupation Type */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Occupation Type</label>
+                            <input
+                              type="text"
+                              value={advancedFilters.occupation_type}
+                              onChange={(e) => handleAdvancedFilterChange('occupation_type', e.target.value)}
+                              placeholder="e.g., Teacher, Engineer"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Special Category */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Special Category</label>
+                            <input
+                              type="text"
+                              value={advancedFilters.special_category}
+                              onChange={(e) => handleAdvancedFilterChange('special_category', e.target.value)}
+                              placeholder="e.g., PWD, Senior Citizen"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Date From */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Date From</label>
+                            <input
+                              type="date"
+                              value={advancedFilters.date_from}
+                              onChange={(e) => handleAdvancedFilterChange('date_from', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Date To */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Date To</label>
+                            <input
+                              type="date"
+                              value={advancedFilters.date_to}
+                              onChange={(e) => handleAdvancedFilterChange('date_to', e.target.value)}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+
+                          {/* Household No */}
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Household No</label>
+                            <input
+                              type="text"
+                              value={advancedFilters.household_no}
+                              onChange={(e) => handleAdvancedFilterChange('household_no', e.target.value)}
+                              placeholder="Household number"
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        {/* Active Filters Summary */}
+                        {hasActiveAdvancedFilters() && (
+                          <div className="mt-4 pt-4 border-t border-indigo-200">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-gray-700">Active Filters:</span>
+                              {advancedFilters.verification_status && (
+                                <span className="px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                                  Verification: {advancedFilters.verification_status}
+                                  <button
+                                    onClick={() => handleAdvancedFilterChange('verification_status', '')}
+                                    className="ml-2 hover:text-indigo-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                              {advancedFilters.gender && (
+                                <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-xs font-medium">
+                                  Gender: {advancedFilters.gender}
+                                  <button
+                                    onClick={() => handleAdvancedFilterChange('gender', '')}
+                                    className="ml-2 hover:text-purple-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                              {advancedFilters.civil_status && (
+                                <span className="px-3 py-1 bg-pink-100 text-pink-800 rounded-full text-xs font-medium">
+                                  Civil: {advancedFilters.civil_status}
+                                  <button
+                                    onClick={() => handleAdvancedFilterChange('civil_status', '')}
+                                    className="ml-2 hover:text-pink-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                              {(advancedFilters.age_min || advancedFilters.age_max) && (
+                                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                  Age: {advancedFilters.age_min || '0'}-{advancedFilters.age_max || '∞'}
+                                  <button
+                                    onClick={() => {
+                                      handleAdvancedFilterChange('age_min', '');
+                                      handleAdvancedFilterChange('age_max', '');
+                                    }}
+                                    className="ml-2 hover:text-blue-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                              {advancedFilters.voter_status && (
+                                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                  Voter: {advancedFilters.voter_status}
+                                  <button
+                                    onClick={() => handleAdvancedFilterChange('voter_status', '')}
+                                    className="ml-2 hover:text-green-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                              {advancedFilters.household_no && (
+                                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                                  Household: {advancedFilters.household_no}
+                                  <button
+                                    onClick={() => handleAdvancedFilterChange('household_no', '')}
+                                    className="ml-2 hover:text-yellow-600"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Enhanced Export Buttons Section */}
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4">
@@ -3756,7 +4227,7 @@ const ResidentsRecords = () => {
                     </div>
 
                     {/* Enhanced Search Results Counter */}
-                    {(search || statusFilter) && (
+                    {(search || statusFilter || hasActiveAdvancedFilters()) && (
                       <div className="relative overflow-hidden rounded-2xl animate-fade-in">
                         {/* Animated Background Pattern */}
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-10"></div>
@@ -3785,7 +4256,7 @@ const ResidentsRecords = () => {
                                     Search Active
                                   </span>
                                 )}
-                                {statusFilter && (
+                                {(statusFilter || hasActiveAdvancedFilters()) && (
                                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-700 border border-blue-200 shadow-sm">
                                     <FunnelIcon className="w-3.5 h-3.5" />
                                     Filter Active
@@ -3803,6 +4274,11 @@ const ResidentsRecords = () => {
                                     Status: <span className="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded capitalize">{statusFilter.replace('_', ' ')}</span>
                                   </span>
                                 )}
+                                {hasActiveAdvancedFilters() && (
+                                  <span className="flex items-center gap-1">
+                                    Advanced: <span className="font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{Object.values(advancedFilters).filter(v => v !== '').length} filter(s)</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -3812,6 +4288,7 @@ const ResidentsRecords = () => {
                             onClick={() => {
                               setSearch('');
                               setStatusFilter('');
+                              clearAdvancedFilters();
                               setCurrentPage(1);
                             }}
                             className="group/clear relative overflow-hidden flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-red-500 via-pink-500 to-red-500 hover:from-red-600 hover:via-pink-600 hover:to-red-600 text-white rounded-xl text-sm font-black shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-110 border-2 border-red-400/50"
