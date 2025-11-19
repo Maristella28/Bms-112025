@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon, BellIcon, InformationCircleIcon } from '@heroicons/react/24/solid';
+import { HeartIcon, ChartBarIcon, UserIcon, CalendarIcon, DocumentTextIcon, ArrowPathIcon, MagnifyingGlassIcon, FunnelIcon, EyeIcon, PencilIcon, TrashIcon, PlusIcon, XMarkIcon, CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, QuestionMarkCircleIcon, StarIcon, SparklesIcon, ArrowTrendingUpIcon, ArrowTrendingDownIcon, ArrowRightIcon, LightBulbIcon, EnvelopeIcon, BookOpenIcon, UserGroupIcon, CreditCardIcon, CalculatorIcon, PaintBrushIcon, BellIcon, InformationCircleIcon, ArrowDownTrayIcon } from '@heroicons/react/24/solid';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, CartesianGrid, XAxis, YAxis, Tooltip, Legend } from 'recharts';
 import axios from '../../../../utils/axiosConfig';
@@ -246,6 +246,150 @@ const SocialServices = () => {
       return `₱${numAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
     } catch (error) {
       return '₱0';
+    }
+  };
+
+  // Export completed programs to Excel
+  const exportCompletedProgramsToExcel = () => {
+    try {
+      // Get completed programs
+      const completedPrograms = programs.filter(p => {
+        const effectiveStatus = getEffectiveProgramStatus(p);
+        return effectiveStatus === 'complete';
+      });
+
+      if (completedPrograms.length === 0) {
+        alert('No completed programs to export.');
+        return;
+      }
+
+      // Create CSV content with detailed records
+      const csvRows = [];
+      
+      // Header section
+      csvRows.push(['GOVERNMENT PROGRAMS - COMPLETED PROGRAMS REPORT']);
+      csvRows.push(['Generated on:', new Date().toLocaleDateString()]);
+      csvRows.push(['Total Completed Programs:', completedPrograms.length]);
+      csvRows.push([]);
+      
+      // For each completed program, create detailed records
+      completedPrograms.forEach((program, programIndex) => {
+        const programBeneficiaries = getBeneficiariesByProgram(program.id);
+        
+        // Program Summary Section
+        csvRows.push([`PROGRAM ${programIndex + 1}: ${program.name || 'Unnamed Program'}`]);
+        csvRows.push(['Program ID', program.id || 'N/A']);
+        csvRows.push(['Program Name', program.name || 'N/A']);
+        csvRows.push(['Description', program.description || 'N/A']);
+        csvRows.push(['Assistance Type', program.assistance_type || program.assistanceType || 'N/A']);
+        csvRows.push(['Beneficiary Type', program.beneficiary_type || program.beneficiaryType || 'N/A']);
+        csvRows.push(['Status', program.status || 'N/A']);
+        csvRows.push(['Start Date', program.start_date || program.startDate ? formatDate(program.start_date || program.startDate) : 'N/A']);
+        csvRows.push(['End Date', program.end_date || program.endDate ? formatDate(program.end_date || program.endDate) : 'N/A']);
+        csvRows.push(['Payout Date', program.payout_date || program.payoutDate ? formatDate(program.payout_date || program.payoutDate) : 'N/A']);
+        csvRows.push(['Amount per Beneficiary', program.amount ? formatCurrency(program.amount) : 'N/A']);
+        csvRows.push(['Maximum Beneficiaries', program.max_beneficiaries || program.maxBeneficiaries || 'N/A']);
+        csvRows.push(['Total Budget', program.amount && (program.max_beneficiaries || program.maxBeneficiaries) 
+          ? formatCurrency(parseFloat(program.amount) * parseInt(program.max_beneficiaries || program.maxBeneficiaries || 0))
+          : 'N/A']);
+        csvRows.push(['Total Beneficiaries', programBeneficiaries.length]);
+        csvRows.push(['Total Disbursed', formatCurrency(programBeneficiaries.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0))]);
+        csvRows.push([]);
+        
+        // Beneficiaries Details Section
+        if (programBeneficiaries.length > 0) {
+          csvRows.push(['BENEFICIARIES DETAILS']);
+          csvRows.push([
+            'Beneficiary ID',
+            'Name',
+            'Email',
+            'Phone',
+            'Address',
+            'Status',
+            'Amount',
+            'Payment Date',
+            'Is Paid',
+            'Notes'
+          ]);
+          
+          programBeneficiaries.forEach((beneficiary, benIndex) => {
+            csvRows.push([
+              beneficiary.id || `BEN-${benIndex + 1}`,
+              beneficiary.name || 'N/A',
+              beneficiary.email || 'N/A',
+              beneficiary.phone || beneficiary.contact_number || 'N/A',
+              beneficiary.address || 'N/A',
+              beneficiary.status || 'N/A',
+              beneficiary.amount ? formatCurrency(beneficiary.amount) : 'N/A',
+              beneficiary.payment_date ? formatDate(beneficiary.payment_date) : 'N/A',
+              beneficiary.is_paid ? 'Yes' : 'No',
+              beneficiary.notes || beneficiary.remarks || 'N/A'
+            ]);
+          });
+          
+          // Beneficiaries Summary
+          csvRows.push([]);
+          csvRows.push(['BENEFICIARIES SUMMARY']);
+          csvRows.push(['Total Beneficiaries', programBeneficiaries.length]);
+          csvRows.push(['Paid Beneficiaries', programBeneficiaries.filter(b => b.is_paid).length]);
+          csvRows.push(['Pending Beneficiaries', programBeneficiaries.filter(b => !b.is_paid).length]);
+          csvRows.push(['Total Amount Disbursed', formatCurrency(programBeneficiaries.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0))]);
+          csvRows.push(['Average Amount per Beneficiary', formatCurrency(
+            programBeneficiaries.length > 0 
+              ? programBeneficiaries.reduce((sum, b) => sum + (parseFloat(b.amount) || 0), 0) / programBeneficiaries.length
+              : 0
+          )]);
+        } else {
+          csvRows.push(['BENEFICIARIES DETAILS']);
+          csvRows.push(['No beneficiaries recorded for this program.']);
+        }
+        
+        csvRows.push([]);
+        csvRows.push([]); // Extra spacing between programs
+      });
+      
+      // Overall Summary
+      csvRows.push(['OVERALL SUMMARY']);
+      csvRows.push(['Total Completed Programs', completedPrograms.length]);
+      csvRows.push(['Total Beneficiaries Across All Programs', 
+        completedPrograms.reduce((sum, p) => sum + getBeneficiariesByProgram(p.id).length, 0)
+      ]);
+      csvRows.push(['Total Amount Disbursed Across All Programs', 
+        formatCurrency(
+          completedPrograms.reduce((sum, p) => 
+            sum + getBeneficiariesByProgram(p.id).reduce((bSum, b) => bSum + (parseFloat(b.amount) || 0), 0), 0
+          )
+        )
+      ]);
+      
+      // Convert to CSV format
+      const csvContent = csvRows
+        .map(row => row.map(cell => {
+          const cellStr = String(cell || '');
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n') || cellStr.includes('\r')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(','))
+        .join('\r\n');
+
+      // Create and download the file
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      const dateStr = new Date().toISOString().split('T')[0];
+      link.download = `completed-programs-report-${dateStr}.csv`;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      alert(`Successfully exported ${completedPrograms.length} completed program(s) with detailed beneficiary records.`);
+    } catch (error) {
+      console.error('Excel export error:', error);
+      alert('Failed to export completed programs. Please try again.');
     }
   };
 
@@ -3183,7 +3327,7 @@ const SocialServices = () => {
                     {/* Completed Programs Section */}
                     {programsByStatus.complete.length > 0 && (
                       <div className="space-y-6">
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between gap-4">
                           <div className="flex items-center gap-3">
                             <div className="w-1 h-12 bg-gradient-to-b from-emerald-500 to-green-600 rounded-full"></div>
                             <div>
@@ -3198,6 +3342,17 @@ const SocialServices = () => {
                               </p>
                             </div>
                           </div>
+                          <button
+                            onClick={exportCompletedProgramsToExcel}
+                            className="group relative bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 text-sm font-semibold transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-emerald-500/40 overflow-hidden"
+                            title="Export completed programs with detailed beneficiary records to Excel"
+                          >
+                            {/* Shine Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                            <ArrowDownTrayIcon className="w-5 h-5 relative z-10" />
+                            <span className="relative z-10 hidden sm:inline">Export to Excel</span>
+                            <span className="relative z-10 sm:hidden">Export</span>
+                          </button>
                         </div>
                         <SocialCards 
                           programs={programsByStatus.complete}
