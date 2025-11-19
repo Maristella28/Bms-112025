@@ -17,6 +17,7 @@ import {
   QuestionMarkCircleIcon
 } from '@heroicons/react/24/outline';
 import EmailVerification from '../../../../components/EmailVerification';
+import { usePermissions } from '../../../../hooks/usePermissions';
 
 const StatCard = ({ label, value, icon, iconBg }) => (
   <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 hover:shadow-xl transition-all duration-300 flex justify-between items-center group">
@@ -31,6 +32,7 @@ const StatCard = ({ label, value, icon, iconBg }) => (
 );
 
 const StaffManagement = () => {
+  const { canPerformAction, hasModuleAccess, isAdmin } = usePermissions();
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -43,6 +45,13 @@ const StaffManagement = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const searchTimeout = React.useRef(null);
+  
+  // Check permissions for staff management actions
+  // For staff accounts, check specific action permissions
+  // For admin accounts, allow all actions
+  const canEditStaff = isAdmin() || canPerformAction('edit', 'staff') || hasModuleAccess('staff');
+  const canViewStaff = isAdmin() || canPerformAction('view', 'staff') || hasModuleAccess('staff');
+  const canDisableStaff = isAdmin() || canPerformAction('disable', 'staff') || hasModuleAccess('staff');
 
   // Enhanced permissions structure with sub-permissions
   const defaultPermissions = {
@@ -1325,11 +1334,13 @@ const StaffManagement = () => {
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-2">
-                            <button
-                              onClick={() => {
-                                const initialPermissions = member.module_permissions || {};
-                                console.log('Opening permissions modal for:', member.name);
-                                console.log('Initial permissions:', JSON.stringify(initialPermissions, null, 2));
+                            {/* Edit Permissions Button - Only show if user has edit permission */}
+                            {canEditStaff && (
+                              <button
+                                onClick={() => {
+                                  const initialPermissions = member.module_permissions || {};
+                                  console.log('Opening permissions modal for:', member.name);
+                                  console.log('Initial permissions:', JSON.stringify(initialPermissions, null, 2));
                                 
                                 // Check if permissions are in API format (flat keys) or UI format (nested structure)
                                 // API format has keys like "residentsRecords_main_records_view"
@@ -1457,18 +1468,45 @@ const StaffManagement = () => {
                                 });
                                 setShowPermissionsModal(true);
                               }}
-                              className="text-green-600 hover:text-green-800 cursor-pointer p-2 rounded-lg hover:bg-green-50 transition-all duration-300 transform hover:scale-110"
-                              title="Edit Permissions"
-                            >
-                              <PencilIcon className="w-5 h-5" />
-                            </button>
-                            <button
-                              onClick={() => handleDeactivate(member.id)}
-                              className="text-red-600 hover:text-red-800 cursor-pointer p-2 rounded-lg hover:bg-red-50 transition-all duration-300 transform hover:scale-110"
-                              title="Deactivate Staff"
-                            >
-                              <XMarkIcon className="w-5 h-5" />
-                            </button>
+                                className="text-green-600 hover:text-green-800 cursor-pointer p-2 rounded-lg hover:bg-green-50 transition-all duration-300 transform hover:scale-110"
+                                title="Edit Permissions"
+                              >
+                                <PencilIcon className="w-5 h-5" />
+                              </button>
+                            )}
+                            
+                            {/* View Details Button - Only show if user has view permission */}
+                            {canViewStaff && (
+                              <button
+                                onClick={() => {
+                                  // TODO: Implement view details functionality
+                                  toast.info(`View details for ${member.name}`, {
+                                    position: "top-right",
+                                    autoClose: 3000
+                                  });
+                                }}
+                                className="text-blue-600 hover:text-blue-800 cursor-pointer p-2 rounded-lg hover:bg-blue-50 transition-all duration-300 transform hover:scale-110"
+                                title="View Details"
+                              >
+                                <EyeIcon className="w-5 h-5" />
+                              </button>
+                            )}
+                            
+                            {/* Disable/Deactivate Staff Button - Only show if user has disable permission */}
+                            {canDisableStaff && (
+                              <button
+                                onClick={() => handleDeactivate(member.id)}
+                                className="text-red-600 hover:text-red-800 cursor-pointer p-2 rounded-lg hover:bg-red-50 transition-all duration-300 transform hover:scale-110"
+                                title="Deactivate Staff"
+                              >
+                                <XMarkIcon className="w-5 h-5" />
+                              </button>
+                            )}
+                            
+                            {/* Show message if no actions are available */}
+                            {!canEditStaff && !canViewStaff && !canDisableStaff && (
+                              <span className="text-xs text-gray-400 italic">No actions available</span>
+                            )}
                           </div>
                         </td>
                       </tr>
