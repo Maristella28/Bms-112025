@@ -276,6 +276,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'admin', 'sanitize'])->group
     // ============================================
     Route::post('/backup/run', [BackupController::class, 'runBackup']);
     Route::get('/backup/{id}/download', [BackupController::class, 'downloadBackup']);
+    Route::post('/backup/{id}/restore', [BackupController::class, 'restoreBackup']);
     Route::delete('/backup/{id}', [BackupController::class, 'deleteBackup']);
     
     // 👤 Admin Profile Management (Admin only)

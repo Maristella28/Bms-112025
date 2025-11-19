@@ -17,6 +17,7 @@ import {
   CheckCircleIcon,
   XMarkIcon,
   ExclamationTriangleIcon,
+  ArrowUturnLeftIcon,
 } from '@heroicons/react/24/outline';
 import {
   ArrowDownTrayIcon as ArrowDownTrayIconSolid,
@@ -111,6 +112,7 @@ const BackupManagement = () => {
   const [statistics, setStatistics] = useState(null);
   const [selectedType, setSelectedType] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
+  const [restoringId, setRestoringId] = useState(null);
   const [modal, setModal] = useState({ isOpen: false, type: 'success', title: '', message: '', details: '' });
 
   // Fetch backups list
@@ -240,6 +242,58 @@ const BackupManagement = () => {
       toast.error(error.response?.data?.message || 'Failed to delete backup');
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // Restore backup
+  const handleRestoreBackup = async (backupId, filename, backupType) => {
+    const confirmMessage = `⚠️ WARNING: Restoring from this backup will ${backupType === 'database' ? 'replace your current database' : backupType === 'storage' ? 'replace your current storage files' : 'replace your current configuration files'}.\n\nThis action cannot be undone!\n\nAre you sure you want to restore from: ${filename}?`;
+    
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setRestoringId(backupId);
+      const response = await axiosInstance.post(`/admin/backup/${backupId}/restore`);
+
+      if (response.data.success) {
+        // Show success modal
+        setModal({
+          isOpen: true,
+          type: 'success',
+          title: 'Backup Restored Successfully!',
+          message: `Your ${backupType} has been restored successfully from: ${filename}`,
+          details: response.data.output || ''
+        });
+        toast.success('Backup restored successfully!');
+        // Refresh backups list and statistics
+        await fetchBackups();
+        await fetchStatistics();
+      } else {
+        // Show error modal
+        setModal({
+          isOpen: true,
+          type: 'error',
+          title: 'Restore Failed',
+          message: response.data.message || 'Backup restore failed. Please check the details below.',
+          details: response.data.output || ''
+        });
+        toast.error(response.data.message || 'Backup restore failed');
+      }
+    } catch (error) {
+      console.error('Error restoring backup:', error);
+      // Show error modal
+      setModal({
+        isOpen: true,
+        type: 'error',
+        title: 'Restore Failed',
+        message: error.response?.data?.message || 'Failed to restore backup. Please try again.',
+        details: error.response?.data?.output || error.message || ''
+      });
+      toast.error(error.response?.data?.message || 'Failed to restore backup');
+    } finally {
+      setRestoringId(null);
     }
   };
 
@@ -545,8 +599,26 @@ const BackupManagement = () => {
                               Download
                             </button>
                             <button
+                              onClick={() => handleRestoreBackup(backup.id, backup.filename, backup.type)}
+                              disabled={restoringId === backup.id || deletingId === backup.id}
+                              className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-all duration-150 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Restore from this backup"
+                            >
+                              {restoringId === backup.id ? (
+                                <>
+                                  <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                  Restoring...
+                                </>
+                              ) : (
+                                <>
+                                  <ArrowUturnLeftIcon className="w-4 h-4" />
+                                  Restore
+                                </>
+                              )}
+                            </button>
+                            <button
                               onClick={() => handleDeleteBackup(backup.id, backup.filename)}
-                              disabled={deletingId === backup.id}
+                              disabled={deletingId === backup.id || restoringId === backup.id}
                               className="inline-flex items-center gap-2 px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-all duration-150 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Delete backup"
                             >

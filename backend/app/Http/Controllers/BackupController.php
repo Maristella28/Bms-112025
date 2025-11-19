@@ -464,6 +464,295 @@ class BackupController extends Controller
     }
 
     /**
+     * Restore from a backup file
+     */
+    public function restoreBackup(Request $request, $id)
+    {
+        \Log::info('BackupController::restoreBackup called', ['backup_id' => $id]);
+        
+        try {
+            $backupDir = storage_path('backups');
+            $files = glob($backupDir . '/*');
+            $backupFile = null;
+            
+            // Find the backup file
+            foreach ($files as $file) {
+                if (md5($file) === $id && is_file($file) && is_readable($file)) {
+                    $backupFile = $file;
+                    break;
+                }
+            }
+
+            if (!$backupFile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Backup file not found'
+                ], 404);
+            }
+
+            $filename = basename($backupFile);
+            $output = [];
+            $success = false;
+            
+            // Determine backup type and restore accordingly
+            if (strpos($filename, 'db_backup_') === 0) {
+                // Database backup restoration
+                \Log::info('Restoring database backup: ' . $filename);
+                
+                // Check if file is compressed
+                if (preg_match('/\.sql\.gz$/', $filename)) {
+                    // Decompress and restore
+                    $tempSqlFile = storage_path('app/temp_restore_' . time() . '.sql');
+                    
+                    // Decompress using gzip
+                    if (function_exists('gzopen')) {
+                        $gz = gzopen($backupFile, 'r');
+                        $sqlContent = '';
+                        while (!gzeof($gz)) {
+                            $sqlContent .= gzread($gz, 8192);
+                        }
+                        gzclose($gz);
+                        file_put_contents($tempSqlFile, $sqlContent);
+                    } else {
+                        // Fallback: use system command
+                        exec("gunzip -c \"$backupFile\" > \"$tempSqlFile\" 2>&1", $output, $exitCode);
+                        if ($exitCode !== 0) {
+                            throw new \Exception('Failed to decompress backup file: ' . implode("\n", $output));
+                        }
+                    }
+                    
+                    // Read SQL file and execute
+                    $sqlContent = file_get_contents($tempSqlFile);
+                    if ($sqlContent === false) {
+                        throw new \Exception('Failed to read decompressed SQL file');
+                    }
+                    
+                    // Split SQL into individual statements
+                    $statements = array_filter(
+                        array_map('trim', explode(';', $sqlContent)),
+                        function($stmt) {
+                            return !empty($stmt) && !preg_match('/^--/', $stmt);
+                        }
+                    );
+                    
+                    // Disable foreign key checks temporarily
+                    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                    
+                    try {
+                        // Execute each SQL statement
+                        foreach ($statements as $statement) {
+                            if (!empty($statement)) {
+                                DB::unprepared($statement);
+                            }
+                        }
+                        $success = true;
+                    } finally {
+                        // Re-enable foreign key checks
+                        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                        
+                        // Clean up temp file
+                        if (file_exists($tempSqlFile)) {
+                            unlink($tempSqlFile);
+                        }
+                    }
+                } else {
+                    // Plain SQL file
+                    $sqlContent = file_get_contents($backupFile);
+                    if ($sqlContent === false) {
+                        throw new \Exception('Failed to read SQL file');
+                    }
+                    
+                    // Disable foreign key checks temporarily
+                    DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+                    
+                    try {
+                        DB::unprepared($sqlContent);
+                        $success = true;
+                    } finally {
+                        // Re-enable foreign key checks
+                        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
+                    }
+                }
+                
+                $output[] = "Database restored successfully from: $filename";
+                
+            } elseif (strpos($filename, 'storage_backup_') === 0) {
+                // Storage backup restoration
+                \Log::info('Restoring storage backup: ' . $filename);
+                
+                $storagePath = storage_path('app');
+                $extractPath = storage_path('app/temp_restore_' . time());
+                
+                // Create temp directory
+                if (!mkdir($extractPath, 0755, true)) {
+                    throw new \Exception('Failed to create temporary extraction directory');
+                }
+                
+                try {
+                    // Extract archive
+                    if (preg_match('/\.tar\.gz$/', $filename)) {
+                        $command = "tar -xzf \"$backupFile\" -C \"$extractPath\" 2>&1";
+                        exec($command, $extractOutput, $exitCode);
+                        if ($exitCode !== 0) {
+                            throw new \Exception('Failed to extract storage backup: ' . implode("\n", $extractOutput));
+                        }
+                    } elseif (preg_match('/\.zip$/', $filename)) {
+                        $zip = new \ZipArchive();
+                        if ($zip->open($backupFile) === TRUE) {
+                            $zip->extractTo($extractPath);
+                            $zip->close();
+                        } else {
+                            throw new \Exception('Failed to open ZIP archive');
+                        }
+                    } else {
+                        throw new \Exception('Unsupported archive format');
+                    }
+                    
+                    // Copy extracted files to storage
+                    $extractedStorage = $extractPath . '/storage';
+                    if (is_dir($extractedStorage)) {
+                        // Copy contents of storage directory
+                        $this->copyDirectory($extractedStorage, $storagePath);
+                        $success = true;
+                        $output[] = "Storage restored successfully from: $filename";
+                    } else {
+                        throw new \Exception('Storage directory not found in backup');
+                    }
+                } finally {
+                    // Clean up temp directory
+                    $this->deleteDirectory($extractPath);
+                }
+                
+            } elseif (strpos($filename, 'config_backup_') === 0) {
+                // Config backup restoration
+                \Log::info('Restoring config backup: ' . $filename);
+                
+                $configPath = base_path();
+                $extractPath = storage_path('app/temp_restore_' . time());
+                
+                // Create temp directory
+                if (!mkdir($extractPath, 0755, true)) {
+                    throw new \Exception('Failed to create temporary extraction directory');
+                }
+                
+                try {
+                    // Extract archive
+                    if (preg_match('/\.tar\.gz$/', $filename)) {
+                        $command = "tar -xzf \"$backupFile\" -C \"$extractPath\" 2>&1";
+                        exec($command, $output, $exitCode);
+                        if ($exitCode !== 0) {
+                            throw new \Exception('Failed to extract config backup: ' . implode("\n", $output));
+                        }
+                    } elseif (preg_match('/\.zip$/', $filename)) {
+                        $zip = new \ZipArchive();
+                        if ($zip->open($backupFile) === TRUE) {
+                            $zip->extractTo($extractPath);
+                            $zip->close();
+                        } else {
+                            throw new \Exception('Failed to open ZIP archive');
+                        }
+                    } else {
+                        throw new \Exception('Unsupported archive format');
+                    }
+                    
+                    // Copy extracted config files
+                    $extractedConfig = $extractPath . '/config';
+                    if (is_dir($extractedConfig)) {
+                        $this->copyDirectory($extractedConfig, $configPath . '/config');
+                        $success = true;
+                        $output[] = "Configuration restored successfully from: $filename";
+                    } else {
+                        throw new \Exception('Config directory not found in backup');
+                    }
+                } finally {
+                    // Clean up temp directory
+                    $this->deleteDirectory($extractPath);
+                }
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unknown backup type. Cannot restore this backup file.'
+                ], 400);
+            }
+
+            if ($success) {
+                // Log activity
+                try {
+                    ActivityLogService::logAdminAction('backup_restored', 'Backup restored: ' . $filename, $request);
+                } catch (\Exception $logError) {
+                    \Log::warning('Failed to log backup restore: ' . $logError->getMessage());
+                }
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Backup restored successfully',
+                    'output' => implode("\n", $output)
+                ]);
+            } else {
+                throw new \Exception('Restore operation failed');
+            }
+
+        } catch (\Exception $e) {
+            \Log::error('Failed to restore backup', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to restore backup: ' . $e->getMessage(),
+                'output' => isset($output) ? implode("\n", $output) : ''
+            ], 500);
+        }
+    }
+
+    /**
+     * Copy directory recursively
+     */
+    private function copyDirectory($source, $destination)
+    {
+        if (!is_dir($destination)) {
+            mkdir($destination, 0755, true);
+        }
+        
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($source, \RecursiveDirectoryIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST
+        );
+        
+        foreach ($iterator as $item) {
+            $destPath = $destination . DIRECTORY_SEPARATOR . $iterator->getSubPathName();
+            
+            if ($item->isDir()) {
+                if (!is_dir($destPath)) {
+                    mkdir($destPath, 0755, true);
+                }
+            } else {
+                copy($item, $destPath);
+            }
+        }
+    }
+
+    /**
+     * Delete directory recursively
+     */
+    private function deleteDirectory($dir)
+    {
+        if (!is_dir($dir)) {
+            return;
+        }
+        
+        $files = array_diff(scandir($dir), ['.', '..']);
+        foreach ($files as $file) {
+            $path = $dir . DIRECTORY_SEPARATOR . $file;
+            is_dir($path) ? $this->deleteDirectory($path) : unlink($path);
+        }
+        rmdir($dir);
+    }
+
+    /**
      * Get MIME type for file
      */
     private function getMimeType($file)
