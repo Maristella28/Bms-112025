@@ -21,15 +21,28 @@ export const usePermissions = () => {
   
   // Debug: Log what permissions we have
   if (user?.role === 'staff') {
-    console.log('usePermissions - Staff permissions:', {
+    const modulePerms = user?.module_permissions || {};
+    const perms = user?.permissions || {};
+    const allResidentsKeys = Object.keys(staffPermissions).filter(k => k.includes('residents'));
+    
+    console.log('🔍 usePermissions - Staff permissions check:', {
       hasModulePermissions: !!user?.module_permissions,
-      modulePermissionsKeys: Object.keys(user?.module_permissions || {}),
+      modulePermissionsCount: Object.keys(modulePerms).length,
+      modulePermissionsKeys: Object.keys(modulePerms),
       hasPermissions: !!user?.permissions,
-      permissionsKeys: Object.keys(user?.permissions || {}),
+      permissionsCount: Object.keys(perms).length,
+      permissionsKeys: Object.keys(perms),
+      staffPermissionsCount: Object.keys(staffPermissions).length,
       staffPermissionsKeys: Object.keys(staffPermissions),
+      allResidentsKeys: allResidentsKeys,
+      // Check specific residents permissions
       residentsRecords_main_records_edit: staffPermissions['residentsRecords_main_records_edit'],
       residentsRecords_main_records_disable: staffPermissions['residentsRecords_main_records_disable'],
-      residentsRecords_main_records_view: staffPermissions['residentsRecords_main_records_view']
+      residentsRecords_main_records_view: staffPermissions['residentsRecords_main_records_view'],
+      // Check if these are the actual values
+      editType: typeof staffPermissions['residentsRecords_main_records_edit'],
+      disableType: typeof staffPermissions['residentsRecords_main_records_disable'],
+      viewType: typeof staffPermissions['residentsRecords_main_records_view']
     });
   }
   
@@ -43,7 +56,10 @@ export const usePermissions = () => {
   // Only use fallback if permissions are truly not loaded (not just minimal permissions)
   // Don't grant dashboard access if it's just a fallback - wait for real permissions
   if (isFallback && (!user?.module_permissions || Object.keys(user?.module_permissions).length <= 1)) {
-    console.log('usePermissions - Permissions not loaded yet, using empty permissions (waiting for backend)');
+    console.warn('⚠️ usePermissions - Permissions not loaded yet, using empty permissions (waiting for backend)', {
+      modulePermissions: user?.module_permissions,
+      permissions: user?.permissions
+    });
     staffPermissions = {}; // Don't grant any permissions until loaded
   }
   

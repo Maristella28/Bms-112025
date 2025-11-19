@@ -732,14 +732,27 @@ const ActionsDropdown = ({ resident, onEdit, onDisable, onView }) => {
   // For staff users, ensure we have permissions loaded before checking
   const hasPermissionsLoaded = user?.role !== 'staff' || (user?.module_permissions && Object.keys(user.module_permissions).length > 1);
   
-  // Only check permissions if they're loaded (or if admin)
-  const canEdit = isAdmin || (hasPermissionsLoaded && canPerformAction('edit', 'residents', 'main_records'));
-  const canDisable = isAdmin || (hasPermissionsLoaded && canPerformAction('disable', 'residents', 'main_records'));
-  const canView = isAdmin || (hasPermissionsLoaded && canPerformAction('view', 'residents', 'main_records'));
+  // Helper function to normalize permission values
+  const normalizePermission = (value) => {
+    if (value === undefined || value === null) return false;
+    if (value === true || value === 1 || value === '1' || value === 'true') return true;
+    if (value === false || value === 0 || value === '0' || value === 'false') return false;
+    return Boolean(value);
+  };
+  
+  // Get direct permission values as fallback
+  const perms = user?.module_permissions || {};
+  const directEdit = normalizePermission(perms.residentsRecords_main_records_edit);
+  const directDisable = normalizePermission(perms.residentsRecords_main_records_disable);
+  const directView = normalizePermission(perms.residentsRecords_main_records_view);
+  
+  // Check permissions using canPerformAction first, then fallback to direct values
+  const canEdit = isAdmin || (hasPermissionsLoaded && (canPerformAction('edit', 'residents', 'main_records') || directEdit));
+  const canDisable = isAdmin || (hasPermissionsLoaded && (canPerformAction('disable', 'residents', 'main_records') || directDisable));
+  const canView = isAdmin || (hasPermissionsLoaded && (canPerformAction('view', 'residents', 'main_records') || directView));
   
   // Debug logging for staff users
   if (user?.role === 'staff') {
-    const perms = user?.module_permissions || {};
     const allKeys = Object.keys(perms);
     const residentsKeys = allKeys.filter(k => k.includes('residents'));
     
@@ -754,10 +767,14 @@ const ActionsDropdown = ({ resident, onEdit, onDisable, onView }) => {
       modulePermissionsCount: allKeys.length,
       allKeys: allKeys,
       residentsKeys: residentsKeys,
-      // Direct permission values
-      residentsRecords_main_records_edit: perms.residentsRecords_main_records_edit,
-      residentsRecords_main_records_disable: perms.residentsRecords_main_records_disable,
-      residentsRecords_main_records_view: perms.residentsRecords_main_records_view,
+      // Direct permission values (raw)
+      rawEdit: perms.residentsRecords_main_records_edit,
+      rawDisable: perms.residentsRecords_main_records_disable,
+      rawView: perms.residentsRecords_main_records_view,
+      // Normalized permission values
+      directEdit,
+      directDisable,
+      directView,
       // Test the permission check directly
       testEdit: canPerformAction('edit', 'residents', 'main_records'),
       testDisable: canPerformAction('disable', 'residents', 'main_records'),

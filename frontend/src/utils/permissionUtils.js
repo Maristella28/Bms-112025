@@ -137,13 +137,23 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
     // Check flat format: backendKey_subModuleKey_action (e.g., residentsRecords_main_records_edit)
     const flatKey = `${backendKey}_${subModuleKey}_${action}`;
     
+    // Normalize permission value - handle true, 1, '1', 'true', etc.
+    const normalizePermissionValue = (value) => {
+      if (value === undefined || value === null) return false;
+      if (value === true || value === 1 || value === '1' || value === 'true') return true;
+      if (value === false || value === 0 || value === '0' || value === 'false') return false;
+      return Boolean(value);
+    };
+    
     // Check directly in staffPermissions (which should be module_permissions from backend)
     if (staffPermissions[flatKey] !== undefined) {
-      const result = Boolean(staffPermissions[flatKey]);
+      const result = normalizePermissionValue(staffPermissions[flatKey]);
       // Only log for debugging when checking residents permissions
       if (backendKey === 'residentsRecords') {
-        console.log(`canPerformAction: Found flat key "${flatKey}" = ${result}`, {
+        console.log(`✅ canPerformAction: Found flat key "${flatKey}" = ${result}`, {
           rawValue: staffPermissions[flatKey],
+          normalizedValue: result,
+          type: typeof staffPermissions[flatKey],
           staffPermissionsKeys: Object.keys(staffPermissions).filter(k => k.includes('residents'))
         });
       }
@@ -155,11 +165,15 @@ export const canPerformAction = (staffPermissions, action, moduleKey, subModuleK
     // Only log for debugging when checking residents permissions
     if (backendKey === 'residentsRecords') {
       const availableKeys = Object.keys(staffPermissions).filter(k => k.includes(backendKey));
-      console.log(`canPerformAction: Flat key "${flatKey}" not found - action NOT permitted`, {
+      console.log(`❌ canPerformAction: Flat key "${flatKey}" not found - action NOT permitted`, {
         lookingFor: flatKey,
         availableKeys: availableKeys,
         allKeys: Object.keys(staffPermissions),
-        staffPermissions: staffPermissions
+        staffPermissions: staffPermissions,
+        // Try to find similar keys
+        similarKeys: Object.keys(staffPermissions).filter(k => 
+          k.includes(backendKey) && k.includes(subModuleKey) && k.includes(action)
+        )
       });
     }
     
