@@ -109,7 +109,26 @@ const AuthProvider = ({ children }) => {
           // Backend returns flat structure (e.g., residentsRecords: true)
           // Frontend needs nested structure (e.g., residents: { access: true, sub_permissions: {...} })
           baseUser.permissions = {};
-          baseUser.module_permissions = {}; // Store raw backend permissions
+          
+          // CRITICAL: Store ALL raw backend permissions (including nested ones like residentsRecords_main_records_edit)
+          // This ensures nested permissions are available for permission checking
+          // Normalize all values to booleans (handle true, 1, '1', false, 0, '0', etc.)
+          baseUser.module_permissions = {};
+          Object.entries(staffPermissions).forEach(([key, value]) => {
+            // Normalize to boolean: true, 1, '1', 'true' → true; everything else → false
+            baseUser.module_permissions[key] = value === true || value === 1 || value === '1' || value === 'true';
+          });
+          
+          console.log('🔍 Storing ALL backend permissions in module_permissions:', {
+            totalKeys: Object.keys(staffPermissions).length,
+            allKeys: Object.keys(staffPermissions),
+            residentsKeys: Object.keys(staffPermissions).filter(k => k.includes('residents')),
+            nestedKeys: Object.keys(staffPermissions).filter(k => k.includes('_') && k.split('_').length >= 3),
+            // Show specific nested permissions
+            hasEdit: baseUser.module_permissions['residentsRecords_main_records_edit'],
+            hasDisable: baseUser.module_permissions['residentsRecords_main_records_disable'],
+            hasView: baseUser.module_permissions['residentsRecords_main_records_view']
+          });
           
           Object.entries(permissionMapping).forEach(([backendKey, frontendKey]) => {
             const hasPermission = Boolean(staffPermissions[backendKey]);
@@ -117,7 +136,7 @@ const AuthProvider = ({ children }) => {
             
             // Store in both formats for compatibility
             baseUser.permissions[frontendKey] = hasPermission;
-            baseUser.module_permissions[backendKey] = hasPermission;
+            // Note: module_permissions already contains all keys from staffPermissions above
             
             // For residents module, check for nested sub-permissions
             if (backendKey === 'residentsRecords' && hasPermission) {
@@ -196,8 +215,11 @@ const AuthProvider = ({ children }) => {
       
       // Force staff permission loading if user has staff role but permissions weren't loaded
       // Only set minimal permissions - don't grant unauthorized access
-      if (baseUser.role === 'staff' && (!baseUser.permissions || Object.keys(baseUser.permissions).length <= 1)) {
+      // IMPORTANT: Check module_permissions (raw backend format) instead of permissions (mapped format)
+      // because module_permissions contains all nested permissions
+      if (baseUser.role === 'staff' && (!baseUser.module_permissions || Object.keys(baseUser.module_permissions).length <= 1)) {
         console.log('Forcing staff permission refresh...');
+        console.warn('⚠️ Staff permissions not fully loaded! module_permissions keys:', Object.keys(baseUser.module_permissions || {}));
         // Only grant dashboard - let the backend permissions be the source of truth
         baseUser.permissions = {
           dashboard: true
@@ -206,6 +228,13 @@ const AuthProvider = ({ children }) => {
           dashboard: true
         };
         console.log('Forced minimal staff permissions (dashboard only):', baseUser.permissions);
+      } else if (baseUser.role === 'staff') {
+        // Log that permissions were loaded successfully
+        console.log('✅ Staff permissions loaded successfully:', {
+          modulePermissionsCount: Object.keys(baseUser.module_permissions || {}).length,
+          hasNestedPermissions: Object.keys(baseUser.module_permissions || {}).some(k => k.includes('_') && k.split('_').length >= 3),
+          residentsNestedKeys: Object.keys(baseUser.module_permissions || {}).filter(k => k.includes('residents') && k.split('_').length >= 3)
+        });
       }
 
       // Set user early so UI can render role-specific UI
