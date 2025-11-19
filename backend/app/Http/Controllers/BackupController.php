@@ -585,17 +585,45 @@ class BackupController extends Controller
                         $processedSql
                     );
                     
-                    // Split SQL into individual statements
-                    $statements = array_filter(
-                        array_map('trim', explode(';', $processedSql)),
-                        function($stmt) {
-                            $stmt = trim($stmt);
-                            return !empty($stmt) && 
-                                   !preg_match('/^--/', $stmt) &&
-                                   !preg_match('/^\/\*/', $stmt) &&
-                                   !preg_match('/^\*\/$/', $stmt);
+                    // Split SQL into individual statements (handle multi-line statements)
+                    // First, normalize line endings and remove comments
+                    $normalizedSql = preg_replace('/--.*$/m', '', $processedSql); // Remove single-line comments
+                    $normalizedSql = preg_replace('/\/\*.*?\*\//s', '', $normalizedSql); // Remove multi-line comments
+                    
+                    // Split by semicolon, but be careful with multi-line statements
+                    $statements = [];
+                    $currentStatement = '';
+                    $lines = explode("\n", $normalizedSql);
+                    
+                    foreach ($lines as $line) {
+                        $line = trim($line);
+                        if (empty($line)) continue;
+                        
+                        $currentStatement .= $line . "\n";
+                        
+                        // Check if line ends with semicolon (end of statement)
+                        if (preg_match('/;\s*$/', $line)) {
+                            $stmt = trim($currentStatement);
+                            if (!empty($stmt) && strlen($stmt) > 5) { // Minimum meaningful statement
+                                $statements[] = $stmt;
+                            }
+                            $currentStatement = '';
                         }
-                    );
+                    }
+                    
+                    // Add any remaining statement
+                    if (!empty(trim($currentStatement))) {
+                        $statements[] = trim($currentStatement);
+                    }
+                    
+                    // Log how many statements we found
+                    $activityLogsStatements = 0;
+                    foreach ($statements as $stmt) {
+                        if (preg_match('/INSERT\s+INTO\s+[`"]?activity_logs[`"]?/i', $stmt)) {
+                            $activityLogsStatements++;
+                        }
+                    }
+                    \Log::info("Found $activityLogsStatements INSERT statements for activity_logs in backup");
                     
                     // Disable foreign key checks temporarily
                     DB::statement('SET FOREIGN_KEY_CHECKS=0;');
@@ -603,21 +631,43 @@ class BackupController extends Controller
                     
                     try {
                         // Execute each SQL statement with error handling
+                        $executedCount = 0;
+                        $errorCount = 0;
                         foreach ($statements as $index => $statement) {
                             if (!empty($statement)) {
                                 try {
                                     DB::unprepared($statement);
+                                    $executedCount++;
                                 } catch (\Exception $e) {
+                                    $errorCount++;
                                     // Log but continue for non-critical errors
-                                    if (strpos($e->getMessage(), 'already exists') === false && 
-                                        strpos($e->getMessage(), 'Duplicate') === false) {
-                                        \Log::warning("SQL statement error at index $index: " . $e->getMessage());
-                                        // Continue with other statements
+                                    $errorMsg = $e->getMessage();
+                                    if (strpos($errorMsg, 'already exists') === false && 
+                                        strpos($errorMsg, 'Duplicate') === false &&
+                                        strpos($errorMsg, 'Unknown column') === false) {
+                                        \Log::warning("SQL statement error at index $index: " . substr($errorMsg, 0, 200));
+                                        // Log first 200 chars of statement for debugging
+                                        if (preg_match('/INSERT\s+INTO\s+[`"]?activity_logs[`"]?/i', $statement)) {
+                                            \Log::error("Failed to execute activity_logs INSERT: " . substr($statement, 0, 500));
+                                        }
                                     }
                                 }
                             }
                         }
+                        \Log::info("Executed $executedCount SQL statements, $errorCount errors");
                         $success = true;
+                        
+                        // Check how many logs were restored from backup
+                        $backupLogsCount = 0;
+                        try {
+                            if (DB::getSchemaBuilder()->hasTable('activity_logs')) {
+                                $backupLogsCount = DB::table('activity_logs')->count();
+                                \Log::info("After restore, found $backupLogsCount activity log entries from backup");
+                                $output[] = "Restored $backupLogsCount activity log entries from backup";
+                            }
+                        } catch (\Exception $e) {
+                            \Log::warning('Could not count backup logs: ' . $e->getMessage());
+                        }
                         
                         // Restore preserved activity logs after database restore
                         if ($preserveLogs && !empty($currentActivityLogs) && DB::getSchemaBuilder()->hasTable('activity_logs')) {
@@ -637,9 +687,14 @@ class BackupController extends Controller
                                 }
                                 
                                 if ($insertedCount > 0) {
-                                    $output[] = "Preserved and restored $insertedCount activity log entries";
+                                    $output[] = "Preserved and restored $insertedCount additional activity log entries";
                                     \Log::info("Restored $insertedCount preserved activity log entries after database restore");
                                 }
+                                
+                                // Final count
+                                $finalCount = DB::table('activity_logs')->count();
+                                $output[] = "Total activity logs after restore: $finalCount";
+                                \Log::info("Total activity logs after restore: $finalCount (backup: $backupLogsCount, preserved: $insertedCount)");
                             } catch (\Exception $e) {
                                 \Log::error('Failed to restore preserved activity logs: ' . $e->getMessage());
                                 $output[] = "Warning: Could not restore all preserved activity logs";
