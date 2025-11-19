@@ -1421,13 +1421,16 @@ const StaffManagement = () => {
                                   <input
                                     type="checkbox"
                                       checked={hasNestedSubPermissions 
-                                        ? Boolean(subPermission?.access) 
-                                        : Boolean(subPermission)}
+                                        ? Boolean(currentModulePerm?.sub_permissions?.[subKey]?.access) 
+                                        : Boolean(currentModulePerm?.sub_permissions?.[subKey])}
                                     onChange={(e) => {
                                         const newValue = e.target.checked;
-                                        if (hasNestedSubPermissions) {
-                                          // Handle nested sub-permissions
-                                          setEditingStaff(prev => {
+                                        // Use the same simple pattern as social_services - read from prev state
+                                        setEditingStaff(prev => {
+                                          const prevModulePerm = prev.module_permissions?.[moduleKey] || { access: false, sub_permissions: {} };
+                                          
+                                          if (hasNestedSubPermissions) {
+                                            // Handle nested sub-permissions (like main_records with edit/disable/view)
                                             // When toggling Main Records: if ON, enable all nested; if OFF, disable all
                                             const updatedNested = Object.keys(subDefault.sub_permissions).reduce((acc, nestedKey) => {
                                               acc[nestedKey] = newValue; // Set all nested permissions to the same value as Main Records toggle
@@ -1439,10 +1442,10 @@ const StaffManagement = () => {
                                               module_permissions: {
                                                 ...(prev.module_permissions || {}),
                                                 [moduleKey]: {
-                                                  ...currentPermission,
-                                                  access: newValue ? true : currentPermission.access, // Keep module access if enabling
+                                                  ...prevModulePerm,
+                                                  access: newValue ? true : prevModulePerm.access, // Keep module access if enabling
                                                   sub_permissions: {
-                                                    ...(currentPermission.sub_permissions || {}),
+                                                    ...(prevModulePerm.sub_permissions || {}),
                                                     [subKey]: {
                                                       access: newValue,
                                                       sub_permissions: updatedNested
@@ -1451,23 +1454,23 @@ const StaffManagement = () => {
                                                 }
                                               }
                                             };
-                                          });
-                                        } else {
-                                          // Handle simple boolean sub-permission
-                                          setEditingStaff(prev => ({
-                                            ...prev,
-                                            module_permissions: {
-                                              ...(prev.module_permissions || {}),
-                                              [moduleKey]: {
-                                                ...currentPermission,
-                                                sub_permissions: {
-                                                  ...(currentPermission.sub_permissions || {}),
-                                                  [subKey]: newValue
+                                          } else {
+                                            // Handle simple boolean sub-permission (like programs, beneficiaries)
+                                            return {
+                                              ...prev,
+                                              module_permissions: {
+                                                ...(prev.module_permissions || {}),
+                                                [moduleKey]: {
+                                                  ...prevModulePerm,
+                                                  sub_permissions: {
+                                                    ...(prevModulePerm.sub_permissions || {}),
+                                                    [subKey]: newValue
+                                                  }
                                                 }
                                               }
-                                            }
-                                          }));
-                                        }
+                                            };
+                                          }
+                                        });
                                     }}
                                     className="sr-only peer"
                                   />
