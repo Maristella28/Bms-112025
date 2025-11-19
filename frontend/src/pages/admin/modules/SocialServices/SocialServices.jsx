@@ -3765,20 +3765,51 @@ const SocialServices = () => {
                     </div>
                   </div>
                   {programForm.assistanceType === 'Monetary Assistance' && (
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-blue-700 mb-1">
-                        Amount (₱) <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={programForm.amount}
-                        onChange={e => setProgramForm(f => ({ ...f, amount: e.target.value }))}
-                        className="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white shadow-sm placeholder-blue-300 text-blue-900 hover:shadow-md focus:shadow-lg"
-                        placeholder="Enter amount"
-                        required
-                      />
+                    <div className="mt-4 space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-blue-700 mb-1">
+                          Amount (₱) <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={programForm.amount}
+                          onChange={e => setProgramForm(f => ({ ...f, amount: e.target.value }))}
+                          className="w-full border border-blue-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 bg-white shadow-sm placeholder-blue-300 text-blue-900 hover:shadow-md focus:shadow-lg"
+                          placeholder="Enter amount"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-blue-700 mb-1">
+                          Overall Budget (₱)
+                        </label>
+                        <div className="w-full border-2 border-green-300 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg px-4 py-3 focus:ring-2 focus:ring-green-500 transition-all duration-300 shadow-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">Amount × Maximum Beneficiaries</span>
+                            <span className="text-lg font-bold text-green-700">
+                              {(() => {
+                                const amount = parseFloat(programForm.amount) || 0;
+                                const maxBeneficiaries = parseFloat(programForm.maxBeneficiaries) || 0;
+                                const overallBudget = amount * maxBeneficiaries;
+                                return overallBudget > 0 
+                                  ? `₱${overallBudget.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                  : '₱0.00';
+                              })()}
+                            </span>
+                          </div>
+                          {(() => {
+                            const amount = parseFloat(programForm.amount) || 0;
+                            const maxBeneficiaries = parseFloat(programForm.maxBeneficiaries) || 0;
+                            return amount > 0 && maxBeneficiaries > 0 ? (
+                              <div className="mt-2 text-xs text-gray-500">
+                                {formatCurrency(amount)} × {maxBeneficiaries} beneficiaries = {formatCurrency(amount * maxBeneficiaries)}
+                              </div>
+                            ) : null;
+                          })()}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
