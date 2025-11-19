@@ -218,32 +218,31 @@ const Sidebar = ({ permissions: propPermissions = {} }) => {
           title: "Projects", 
           path: `/${userRole}/projectManagement`,
           module: "projects"
-        }
-      ]
-    },
-    { 
-      title: "Inventory", 
-      icon: <Boxes size={iconSize} />, 
-      path: `/${userRole}/inventoryAssets`,
-      module: "inventory",
-      subItems: [
-        { 
-          title: "Asset Management", 
-          path: `/${userRole}/assets-management`,
-          module: "inventory",
-          subModule: "asset_management"
         },
         { 
-          title: "Asset Posts Management", 
-          path: `/${userRole}/assets-post-management`,
+          title: "Inventory", 
+          path: `/${userRole}/inventoryAssets`,
           module: "inventory",
-          subModule: "asset_posts_management"
-        },
-        { 
-          title: "Asset Tracking", 
-          path: `/${userRole}/inventoryAssets?tab=tracking`,
-          module: "inventory",
-          subModule: "asset_tracking"
+          subItems: [
+            { 
+              title: "Asset Management", 
+              path: `/${userRole}/assets-management`,
+              module: "inventory",
+              subModule: "asset_management"
+            },
+            { 
+              title: "Asset Posts Management", 
+              path: `/${userRole}/assets-post-management`,
+              module: "inventory",
+              subModule: "asset_posts_management"
+            },
+            { 
+              title: "Asset Tracking", 
+              path: `/${userRole}/inventoryAssets?tab=tracking`,
+              module: "inventory",
+              subModule: "asset_tracking"
+            }
+          ]
         }
       ]
     }
