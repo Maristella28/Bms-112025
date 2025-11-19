@@ -232,42 +232,65 @@ const StaffManagement = () => {
             base[uiKey].access = true;
           }
         }
-      } else if (parts.length === 3) {
-        // 3-part key: e.g., "residentsRecords_main_records_view"
-        const [_, subKey, nestedKey] = parts;
-        const subPermission = base[uiKey].sub_permissions[subKey];
+      } else if (parts.length >= 3) {
+        // 3+ part key: e.g., "residentsRecords_main_records_view"
+        // When split by "_", this becomes: ["residentsRecords", "main", "records", "view"] (4 parts)
+        // We need: subKey = "main_records", nestedKey = "view"
         
-        if (typeof subPermission === 'object' && subPermission !== null && subPermission.sub_permissions) {
-          // Initialize sub_permissions if it doesn't exist
-          if (!subPermission.sub_permissions) {
-            subPermission.sub_permissions = {};
-          }
+        // Strategy: Try different combinations to find the correct subKey
+        // Check available subKeys in the default structure
+        const availableSubKeys = Object.keys(base[uiKey].sub_permissions || {});
+        let found = false;
+        
+        // Try combinations: for "residentsRecords_main_records_view"
+        // Try: "main" (parts[1]), "main_records" (parts[1]_parts[2]), etc.
+        for (let i = 1; i < parts.length - 1; i++) {
+          const possibleSubKey = parts.slice(1, i + 1).join('_'); // Combine parts[1] to parts[i]
+          const possibleNestedKey = parts.slice(i + 1).join('_'); // Rest is nestedKey
           
-          // Set the nested permission value
-          subPermission.sub_permissions[nestedKey] = normalizedValue;
-          
-          // Debug log for residents
-          if (uiKey === 'residents' && subKey === 'main_records') {
-            console.log(`mapApiToUiPermissions: Setting ${nestedKey} = ${normalizedValue}`, {
-              apiKey,
-              uiKey,
-              subKey,
-              nestedKey,
-              value,
-              normalizedValue
-            });
+          // Check if this subKey exists in the structure
+          if (availableSubKeys.includes(possibleSubKey)) {
+            const subPerm = base[uiKey].sub_permissions[possibleSubKey];
+            
+            // Check if it's an object with sub_permissions (nested structure)
+            if (typeof subPerm === 'object' && subPerm !== null && subPerm.sub_permissions) {
+              // Check if the nestedKey exists in the default structure
+              const defaultNestedKeys = Object.keys(subPerm.sub_permissions);
+              if (defaultNestedKeys.includes(possibleNestedKey)) {
+                // Found the correct mapping!
+                subPerm.sub_permissions[possibleNestedKey] = normalizedValue;
+                
+                // Debug log for residents
+                if (uiKey === 'residents' && possibleSubKey === 'main_records') {
+                  console.log(`✅ mapApiToUiPermissions: Setting ${possibleSubKey}.${possibleNestedKey} = ${normalizedValue}`, {
+                    apiKey,
+                    uiKey,
+                    subKey: possibleSubKey,
+                    nestedKey: possibleNestedKey,
+                    value,
+                    normalizedValue
+                  });
+                }
+                
+                // If nested permission is true, ensure all parent permissions are also true
+                if (normalizedValue) {
+                  subPerm.access = true;
+                  base[uiKey].access = true;
+                }
+                
+                found = true;
+                break;
+              }
+            }
           }
-          
-          // If nested permission is true, ensure all parent permissions are also true
-          if (normalizedValue) {
-            subPermission.access = true;
-            base[uiKey].access = true;
-          }
-        } else {
-          console.warn(`mapApiToUiPermissions: subPermission for ${uiKey}.${subKey} is not an object with sub_permissions`, {
-            subPermission,
-            apiKey,
-            parts
+        }
+        
+        if (!found) {
+          console.warn(`⚠️ mapApiToUiPermissions: Could not map ${apiKey}`, {
+            parts,
+            availableSubKeys,
+            uiKey,
+            triedCombinations: parts.slice(1).map((_, i) => parts.slice(1, i + 2).join('_'))
           });
         }
       }
