@@ -402,83 +402,24 @@ class StaffController extends Controller
                 ]);
             }
             
-            // Get current permissions from database to preserve existing nested permissions
-            $currentPermissions = $staff->module_permissions ?? [];
-            
-            // Define all expected permission keys with default false values
-            // Note: We only set defaults for main module keys, not nested sub-permissions
-            // Nested permissions (e.g., residentsRecords_main_records_view) should come from incomingPermissions
-            $defaultPermissions = [
-                'dashboard' => false,
-                'residentsRecords' => false,
-                'documentsRecords' => false,
-                'householdRecords' => false,
-                'blotterRecords' => false,
-                'financialTracking' => false,
-                'barangayOfficials' => false,
-                'staffManagement' => false,
-                'communicationAnnouncement' => false,
-                'socialServices' => false,
-                'disasterEmergency' => false,
-                'projectManagement' => false,
-                'inventoryAssets' => false,
-                'activityLogs' => false
-            ];
-            
-            // IMPORTANT: Merge strategy to preserve ALL existing nested permissions:
-            // 1. Start with current permissions (preserves ALL existing nested permissions from DB)
-            // 2. Apply incoming permissions (updates only the ones being changed)
-            // 3. Apply defaults for main module keys that don't exist
-            // This ensures:
-            // - All existing nested permissions are preserved
-            // - Only permissions in incomingPermissions are updated
-            // - Main module keys always have a value
-            $finalPermissions = $currentPermissions; // Start with existing permissions
-            
-            // Update with incoming permissions (only the ones being changed)
+            // SIMPLIFIED: Just use incoming permissions directly
+            // The frontend sends ALL permissions (including nested ones), so we don't need to merge
+            // Just normalize all values to booleans
+            $finalPermissions = [];
             foreach ($incomingPermissions as $key => $value) {
                 $finalPermissions[$key] = filter_var($value, FILTER_VALIDATE_BOOLEAN);
             }
             
-            // CRITICAL: Ensure all nested permissions for residentsRecords_main_records are present
-            // Even if they weren't in incomingPermissions, we need to preserve them from currentPermissions
-            // or set them to false if they don't exist
-            $residentsNestedKeys = [
-                'residentsRecords_main_records',
-                'residentsRecords_main_records_view',
-                'residentsRecords_main_records_edit',
-                'residentsRecords_main_records_disable',
-                'residentsRecords_disabled_residents'
-            ];
-            
-            // Log what we have before ensuring nested keys
-            Log::info('Before ensuring nested keys', [
-                'incoming_has_main_records' => isset($incomingPermissions['residentsRecords_main_records']),
-                'incoming_has_view' => isset($incomingPermissions['residentsRecords_main_records_view']),
-                'incoming_has_edit' => isset($incomingPermissions['residentsRecords_main_records_edit']),
-                'incoming_has_disable' => isset($incomingPermissions['residentsRecords_main_records_disable']),
-                'current_has_main_records' => isset($currentPermissions['residentsRecords_main_records']),
-                'current_has_view' => isset($currentPermissions['residentsRecords_main_records_view']),
+            Log::info('Using incoming permissions directly (simplified)', [
+                'incoming_count' => count($incomingPermissions),
+                'final_count' => count($finalPermissions),
+                'has_residentsRecords_main_records_view' => isset($finalPermissions['residentsRecords_main_records_view']),
+                'residentsRecords_main_records_view_value' => $finalPermissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
+                'has_residentsRecords_main_records_edit' => isset($finalPermissions['residentsRecords_main_records_edit']),
+                'residentsRecords_main_records_edit_value' => $finalPermissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
+                'has_residentsRecords_main_records_disable' => isset($finalPermissions['residentsRecords_main_records_disable']),
+                'residentsRecords_main_records_disable_value' => $finalPermissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
             ]);
-            
-            // Always ensure nested permissions are present, regardless of main module state
-            // This ensures they're always saved, even if the frontend didn't send them
-            foreach ($residentsNestedKeys as $nestedKey) {
-                if (!isset($finalPermissions[$nestedKey])) {
-                    // Prefer incoming (if sent), then current (if exists), then false
-                    $finalPermissions[$nestedKey] = $incomingPermissions[$nestedKey] ?? $currentPermissions[$nestedKey] ?? false;
-                    Log::info("Added missing nested key: {$nestedKey} = " . ($finalPermissions[$nestedKey] ? 'true' : 'false'), [
-                        'source' => isset($incomingPermissions[$nestedKey]) ? 'incoming' : (isset($currentPermissions[$nestedKey]) ? 'current' : 'default')
-                    ]);
-                }
-            }
-            
-            // Ensure main module keys exist (merge defaults for missing main keys only)
-            foreach ($defaultPermissions as $key => $defaultValue) {
-                if (!isset($finalPermissions[$key])) {
-                    $finalPermissions[$key] = $defaultValue;
-                }
-            }
             
             // Debug: Check if nested permissions are present
             $nestedKeys = array_filter(array_keys($finalPermissions), function($key) {
@@ -540,13 +481,37 @@ class StaffController extends Controller
                 'current_has_view' => isset($currentDecoded['residentsRecords_main_records_view']) ? $currentDecoded['residentsRecords_main_records_view'] : 'NOT_SET',
             ]);
             
-            // Use the same simple approach as the regular update() method
-            // Just update the model directly - Laravel handles JSON encoding automatically
+            // Use the EXACT same approach as the regular update() method
+            // Set the attribute and check if it's dirty before saving
             $staff->module_permissions = $finalPermissions;
-            $staff->save();
+            $isDirty = $staff->isDirty('module_permissions');
             
-            Log::info('Staff permissions saved using model update', [
+            Log::info('Before saving permissions', [
                 'staff_id' => $staff->id,
+                'is_dirty' => $isDirty,
+                'final_permissions_count' => count($finalPermissions),
+                'residentsRecords_main_records_view' => $finalPermissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
+            ]);
+            
+            // Save the model
+            $wasSaved = $staff->save();
+            
+            // If save didn't work or model wasn't dirty (Laravel didn't detect change), force DB update
+            if (!$wasSaved || !$isDirty) {
+                Log::warning('Model save may not have worked, forcing direct DB update', [
+                    'staff_id' => $staff->id,
+                    'was_saved' => $wasSaved,
+                    'was_dirty' => $isDirty
+                ]);
+                \DB::table('staff')
+                    ->where('id', $staff->id)
+                    ->update(['module_permissions' => $finalPermissions]);
+                $staff->refresh(); // Refresh to get the updated data
+            }
+            
+            Log::info('Staff permissions saved', [
+                'staff_id' => $staff->id,
+                'was_saved' => $wasSaved,
                 'saved_permissions' => $staff->module_permissions,
                 'residentsRecords_main_records_view' => $staff->module_permissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
                 'residentsRecords_main_records_edit' => $staff->module_permissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
@@ -556,8 +521,19 @@ class StaffController extends Controller
             
             DB::commit();
             
-            // Refresh to get the latest from database
-            $staff->refresh();
+            // Verify what was actually saved by querying database directly
+            $verifyDb = \DB::table('staff')->where('id', $staff->id)->value('module_permissions');
+            $verifyDecoded = json_decode($verifyDb, true);
+            
+            Log::info('Verification after save and commit', [
+                'staff_id' => $staff->id,
+                'model_has_view' => $staff->module_permissions['residentsRecords_main_records_view'] ?? 'NOT_SET',
+                'model_has_edit' => $staff->module_permissions['residentsRecords_main_records_edit'] ?? 'NOT_SET',
+                'model_has_disable' => $staff->module_permissions['residentsRecords_main_records_disable'] ?? 'NOT_SET',
+                'db_has_view' => isset($verifyDecoded['residentsRecords_main_records_view']) ? $verifyDecoded['residentsRecords_main_records_view'] : 'NOT_SET',
+                'db_has_edit' => isset($verifyDecoded['residentsRecords_main_records_edit']) ? $verifyDecoded['residentsRecords_main_records_edit'] : 'NOT_SET',
+                'db_has_disable' => isset($verifyDecoded['residentsRecords_main_records_disable']) ? $verifyDecoded['residentsRecords_main_records_disable'] : 'NOT_SET',
+            ]);
 
             // Return success response with saved permissions for verification
             return response()->json([
