@@ -1616,15 +1616,24 @@ const ProgramDetails = () => {
     }
   };
 
-  // Helper function to convert ISO date to datetime-local format
+  // Helper function to convert ISO date to datetime-local format (handles timezone correctly)
   const toInputDateTime = (dateString) => {
     if (!dateString) return '';
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return '';
+      
+      // Get local date components (not UTC) to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      
       // Format as YYYY-MM-DDTHH:mm for datetime-local input
-      return date.toISOString().slice(0, 16);
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
     } catch (e) {
+      console.error('Error converting date to datetime-local:', e);
       return '';
     }
   };
@@ -1632,7 +1641,7 @@ const ProgramDetails = () => {
   // Handle opening payout date modal
   const handleOpenPayoutDateModal = () => {
     if (payoutDate) {
-      // Convert to datetime-local format
+      // Convert to datetime-local format using local timezone
       const dateTimeValue = toInputDateTime(payoutDate);
       if (dateTimeValue) {
         const [dateStr, timeStr] = dateTimeValue.split('T');
@@ -1641,7 +1650,26 @@ const ProgramDetails = () => {
           time: timeStr || ''
         });
       } else {
-        setPayoutDateForm({ date: '', time: '' });
+        // Fallback: try direct parsing
+        try {
+          const date = new Date(payoutDate);
+          if (!isNaN(date.getTime())) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            setPayoutDateForm({
+              date: `${year}-${month}-${day}`,
+              time: `${hours}:${minutes}`
+            });
+          } else {
+            setPayoutDateForm({ date: '', time: '' });
+          }
+        } catch (e) {
+          console.error('Error parsing payout date:', e);
+          setPayoutDateForm({ date: '', time: '' });
+        }
       }
     } else {
       setPayoutDateForm({
@@ -1715,13 +1743,24 @@ const ProgramDetails = () => {
         payout_date: payoutDateTime,
       };
       
-      await axiosInstance.put(`/admin/programs/${id}`, programUpdateData);
+      const response = await axiosInstance.put(`/admin/programs/${id}`, programUpdateData);
       
-      // Refresh program data
-      const programs = await fetchPrograms();
-      const updatedProgram = programs.find((p) => String(p.id) === String(id));
-      if (updatedProgram) {
+      // Update program state directly from response (more reliable than refetching)
+      if (response.data) {
+        // Ensure we have a fresh copy of the program with updated payout_date
+        const updatedProgram = {
+          ...response.data,
+          payout_date: response.data.payout_date || response.data.payoutDate || null,
+          payoutDate: response.data.payoutDate || response.data.payout_date || null
+        };
         setProgram(updatedProgram);
+      } else {
+        // Fallback: refresh program data if response doesn't have data
+        const programs = await fetchPrograms();
+        const updatedProgram = programs.find((p) => String(p.id) === String(id));
+        if (updatedProgram) {
+          setProgram(updatedProgram);
+        }
       }
       
       setToast({
@@ -4365,13 +4404,11 @@ const ProgramDetails = () => {
                       onChange={e => {
                         const value = e.target.value;
                         if (value) {
-                          // Convert to separate date and time
-                          const date = new Date(value);
-                          const dateStr = date.toISOString().split('T')[0];
-                          const timeStr = date.toTimeString().slice(0, 5);
+                          // datetime-local returns value in local timezone, so we can split directly
+                          const [dateStr, timeStr] = value.split('T');
                           setPayoutDateForm({
-                            date: dateStr,
-                            time: timeStr
+                            date: dateStr || '',
+                            time: timeStr || ''
                           });
                         } else {
                           setPayoutDateForm({ date: '', time: '' });
