@@ -284,8 +284,9 @@ const ActivityLogs = () => {
     try {
       setInactiveResidentsLoading(true);
       const response = await axios.get(`/admin/activity-logs/inactive-residents?page=${inactiveResidentsPage}&per_page=20`);
-      setInactiveResidents(response.data.inactive_residents || []);
-      setInactiveResidentsTotal(response.data.total || 0);
+      // Updated to match new response format: { data: [...], meta: {...} }
+      setInactiveResidents(response.data.data || []);
+      setInactiveResidentsTotal(response.data.meta?.total || 0);
     } catch (err) {
       console.error('Error fetching inactive residents:', err);
       setError('Failed to fetch inactive residents');
