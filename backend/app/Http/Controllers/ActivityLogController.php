@@ -327,11 +327,11 @@ class ActivityLogController extends Controller
                     'profile.updated',
                     'resident.updated'
                 ])
-                ->where('created_at', '>=', $oneYearAgo)
-                ->whereNotNull('user_id')
-                ->distinct()
-                ->pluck('user_id')
-                ->toArray();
+                    ->where('created_at', '>=', $oneYearAgo)
+                    ->whereNotNull('user_id')
+                    ->distinct()
+                    ->pluck('user_id')
+                    ->toArray();
 
             // Build query for inactive residents
             // Filter residents with user accounts that are NOT in the active list
@@ -341,7 +341,7 @@ class ActivityLogController extends Controller
                     }
                 ])
                 ->whereNotNull('user_id');
-
+            
             // Filter out active users (those with recent activity in the past year)
             if (!empty($activeUserIds)) {
                 $inactiveResidentsQuery->whereNotIn('user_id', $activeUserIds);
@@ -364,13 +364,13 @@ class ActivityLogController extends Controller
 
             // Map residents with their activity log details
             $data = $inactiveResidents->map(function($resident) use ($oneYearAgo) {
-                if (!$resident->user_id) {
-                    return null;
-                }
+                    if (!$resident->user_id) {
+                        return null;
+                    }
 
-                try {
+                    try {
                     // Get the last activity log for this user
-                    $lastActivity = ActivityLog::where('user_id', $resident->user_id)
+                        $lastActivity = ActivityLog::where('user_id', $resident->user_id)
                         ->whereIn('action', [
                             'login', 
                             'Resident.Profile.Updated', 
@@ -378,8 +378,8 @@ class ActivityLogController extends Controller
                             'profile.updated',
                             'resident.updated'
                         ])
-                        ->orderBy('created_at', 'desc')
-                        ->first();
+                            ->orderBy('created_at', 'desc')
+                            ->first();
 
                     // Determine last activity date
                     $lastActivityDate = null;
@@ -395,7 +395,7 @@ class ActivityLogController extends Controller
                         $lastActivityDate = Carbon::now();
                     }
 
-                    $daysInactive = $lastActivityDate->diffInDays(Carbon::now());
+                        $daysInactive = $lastActivityDate->diffInDays(Carbon::now());
 
                     // Get all activity logs for this resident (limited to recent ones)
                     $activityLogs = ActivityLog::where('user_id', $resident->user_id)
@@ -420,25 +420,25 @@ class ActivityLogController extends Controller
                         ($resident->name_suffix ?? '')
                     );
 
-                    return [
-                        'id' => $resident->id,
-                        'resident_id' => $resident->resident_id ?? '',
-                        'first_name' => $resident->first_name ?? '',
-                        'middle_name' => $resident->middle_name ?? '',
-                        'last_name' => $resident->last_name ?? '',
-                        'name_suffix' => $resident->name_suffix ?? '',
-                        'email' => $resident->email ?? '',
+                        return [
+                            'id' => $resident->id,
+                            'resident_id' => $resident->resident_id ?? '',
+                            'first_name' => $resident->first_name ?? '',
+                            'middle_name' => $resident->middle_name ?? '',
+                            'last_name' => $resident->last_name ?? '',
+                            'name_suffix' => $resident->name_suffix ?? '',
+                            'email' => $resident->email ?? '',
                         'contact_number' => $resident->contact_number ?? $resident->mobile_number ?? '',
                         'full_name' => $fullName,
-                        'user_id' => $resident->user_id,
-                        'last_activity_date' => $lastActivityDate->toDateTimeString(),
-                        'days_inactive' => $daysInactive,
-                        'for_review' => isset($resident->for_review) ? (bool)$resident->for_review : false,
+                            'user_id' => $resident->user_id,
+                            'last_activity_date' => $lastActivityDate->toDateTimeString(),
+                            'days_inactive' => $daysInactive,
+                            'for_review' => isset($resident->for_review) ? (bool)$resident->for_review : false,
                         'account_status' => $resident->account_status ?? null,
-                        'user' => $resident->user ? [
-                            'id' => $resident->user->id,
-                            'name' => $resident->user->name ?? '',
-                            'email' => $resident->user->email ?? '',
+                            'user' => $resident->user ? [
+                                'id' => $resident->user->id,
+                                'name' => $resident->user->name ?? '',
+                                'email' => $resident->user->email ?? '',
                             'residency_status' => $resident->user->residency_status ?? null,
                             'last_activity_at' => $resident->user->last_activity_at ? $resident->user->last_activity_at->toDateTimeString() : null,
                         ] : null,
@@ -448,28 +448,28 @@ class ActivityLogController extends Controller
                             'action' => $lastActivity->action,
                             'description' => $lastActivity->description,
                             'created_at' => $lastActivity->created_at ? $lastActivity->created_at->toDateTimeString() : null,
-                        ] : null,
-                    ];
-                } catch (\Exception $e) {
-                    \Log::warning('Error processing resident in inactiveResidents', [
-                        'resident_id' => $resident->id,
+                            ] : null,
+                        ];
+                    } catch (\Exception $e) {
+                        \Log::warning('Error processing resident in inactiveResidents', [
+                            'resident_id' => $resident->id,
                         'error' => $e->getMessage(),
                         'trace' => $e->getTraceAsString()
-                    ]);
-                    return null;
-                }
-            })
-            ->filter() // Remove null entries
-            ->sortByDesc('days_inactive')
-            ->values();
+                        ]);
+                        return null;
+                    }
+                })
+                ->filter() // Remove null entries
+                ->sortByDesc('days_inactive')
+                ->values();
 
             // Return in the requested format: { data: [...], meta: {...} }
             return response()->json([
                 'data' => $data,
                 'meta' => [
-                    'total' => $total,
-                    'page' => $page,
-                    'per_page' => $perPage,
+                'total' => $total,
+                'page' => $page,
+                'per_page' => $perPage,
                     'last_page' => (int) ceil($total / $perPage),
                 ]
             ]);
@@ -507,9 +507,9 @@ class ActivityLogController extends Controller
                 'error' => config('app.debug') ? $e->getMessage() : 'An error occurred while fetching inactive residents',
                 'data' => [],
                 'meta' => [
-                    'total' => 0,
-                    'page' => 1,
-                    'per_page' => 20,
+                'total' => 0,
+                'page' => 1,
+                'per_page' => 20,
                 ]
             ], 500);
         }

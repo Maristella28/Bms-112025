@@ -4809,7 +4809,7 @@ const ResidentsRecords = () => {
                     Cancel
                   </button>
                   <button 
-                    onClick={confirmDelete}
+                    onClick={confirmDelete} 
                     disabled={!disableReason}
                     className={`px-4 py-2 rounded-xl transition-colors font-medium ${
                       disableReason

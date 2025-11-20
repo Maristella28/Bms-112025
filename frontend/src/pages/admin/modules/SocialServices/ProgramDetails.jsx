@@ -3991,7 +3991,7 @@ const ProgramDetails = () => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 )}
-                <div className="flex-1">
+              <div className="flex-1">
                   <div className="font-bold text-base mb-1">{toast.type === 'success' ? '✓ Success' : '✕ Error'}</div>
                   <div className="text-sm leading-relaxed">{toast.message}</div>
                 </div>

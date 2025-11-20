@@ -88,7 +88,7 @@ class ProgramAnnouncementController extends Controller
         $user = Auth::user();
         if ($user) {
             try {
-                ActivityLogService::logCreated($announcement, $request);
+            ActivityLogService::logCreated($announcement, $request);
             } catch (\Exception $e) {
                 Log::warning('Failed to log announcement creation', ['error' => $e->getMessage()]);
             }
@@ -192,7 +192,7 @@ class ProgramAnnouncementController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-        
+
         $oldValues = $announcement->getOriginal();
         $announcement->update($requestData);
         
