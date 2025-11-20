@@ -17,6 +17,8 @@ const EnrolledPrograms = () => {
   const [proofComment, setProofComment] = useState('');
   const [receiptNumber, setReceiptNumber] = useState('');
   const [receiptValidationError, setReceiptValidationError] = useState('');
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -135,6 +137,20 @@ const EnrolledPrograms = () => {
     setProofComment('');
     setReceiptNumber('');
     setReceiptValidationError('');
+    setRating(0);
+    setHoveredRating(0);
+  };
+
+  // Helper function to check if program is non-monetary
+  const isNonMonetaryProgram = () => {
+    if (!trackingModal.data) return false;
+    const assistanceType = trackingModal.data.program?.assistance_type || 
+                          trackingModal.data.beneficiary?.assistance_type ||
+                          trackingModal.data.program?.assistanceType ||
+                          trackingModal.data.beneficiary?.assistanceType;
+    return assistanceType === 'Non-monetary Assistance' || 
+           assistanceType === 'Non-monetary' ||
+           assistanceType === 'non-monetary';
   };
 
   const handleNotificationClick = async (notification) => {
@@ -248,10 +264,20 @@ const EnrolledPrograms = () => {
   const handleUploadProof = async () => {
     if (!trackingModal.data) return;
 
-    // Validate receipt number is provided
-    if (!receiptNumber.trim()) {
-      setReceiptValidationError('Please enter your receipt number');
-      return;
+    const isNonMonetary = isNonMonetaryProgram();
+
+    // For non-monetary programs, validate rating instead of receipt number
+    if (isNonMonetary) {
+      if (rating === 0) {
+        setReceiptValidationError('Please provide a rating');
+        return;
+      }
+    } else {
+      // For monetary programs, validate receipt number
+      if (!receiptNumber.trim()) {
+        setReceiptValidationError('Please enter your receipt number');
+        return;
+      }
     }
 
     try {
@@ -259,7 +285,15 @@ const EnrolledPrograms = () => {
       setReceiptValidationError('');
       
       const formData = new FormData();
-      formData.append('receipt_number', receiptNumber.trim());
+      
+      if (isNonMonetary) {
+        // For non-monetary programs, send rating instead of receipt number
+        formData.append('rating', rating.toString());
+      } else {
+        // For monetary programs, send receipt number
+        formData.append('receipt_number', receiptNumber.trim());
+      }
+      
       if (selectedFile) {
         formData.append('proof_file', selectedFile);
       }
@@ -843,51 +877,138 @@ const EnrolledPrograms = () => {
                             </div>
                           )}
 
-                          {/* Stage 3: Upload Proof of Payout */}
+                          {/* Stage 3: Complete Program */}
                           {stage.stage === 3 && stage.active && !trackingModal.data.beneficiary.receipt_number_validated && (
                             <div className={`mt-4 p-4 rounded-lg border-2 ${
                               trackingModal.data.beneficiary.is_paid 
                                 ? 'bg-green-50 border-green-300' 
                                 : 'bg-white border-gray-200'
                             }`}>
-                              <h5 className={`font-semibold mb-3 ${
-                                trackingModal.data.beneficiary.is_paid 
-                                  ? 'text-green-800' 
-                                  : 'text-gray-800'
-                              }`}>
-                                Complete Program - Enter Receipt Number
-                                {trackingModal.data.beneficiary.is_paid && (
-                                  <span className="ml-2 text-green-600">✓ Ready to complete</span>
-                                )}
-                              </h5>
-                              <div className="space-y-4">
-                                {trackingModal.data.beneficiary.receipt_number_validated ? (
-                                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                                    <p className="text-green-800 font-medium mb-2">✓ Receipt number validated successfully</p>
-                                    <p className="text-sm text-green-700">
-                                      <strong>Receipt Number:</strong> {trackingModal.data.beneficiary.receipt_number}
-                                    </p>
-                                    {trackingModal.data.beneficiary.proof_of_payout_url && (
-                                      <div className="mt-2">
-                                        <a 
-                                          href={trackingModal.data.beneficiary.proof_of_payout_url} 
-                                          target="_blank" 
-                                          rel="noopener noreferrer"
-                                          className="text-blue-600 hover:text-blue-800 underline"
-                                        >
-                                          View uploaded proof
-                                        </a>
-                                      </div>
+                              {isNonMonetaryProgram() ? (
+                                // Non-Monetary: 5-Star Rating System
+                                <>
+                                  <h5 className={`font-semibold mb-3 ${
+                                    trackingModal.data.beneficiary.is_paid 
+                                      ? 'text-green-800' 
+                                      : 'text-gray-800'
+                                  }`}>
+                                    Complete Program - Rate Your Experience
+                                    {trackingModal.data.beneficiary.is_paid && (
+                                      <span className="ml-2 text-green-600">✓ Ready to complete</span>
                                     )}
-                                    {trackingModal.data.beneficiary.proof_comment && (
-                                      <div className="mt-2 p-2 bg-white rounded border">
-                                        <p className="text-sm text-gray-600">
-                                          <strong>Comment:</strong> {trackingModal.data.beneficiary.proof_comment}
+                                  </h5>
+                                  <div className="space-y-4">
+                                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                      <div className="flex items-start gap-3">
+                                        <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                                          <span className="text-blue-600 text-sm">ℹ</span>
+                                        </div>
+                                        <div>
+                                          <h6 className="font-semibold text-blue-800 mb-1">How to complete this step:</h6>
+                                          <p className="text-sm text-blue-700 mb-2">
+                                            1. Rate your experience with this program (1-5 stars)
+                                          </p>
+                                          <p className="text-sm text-blue-700">
+                                            2. Optionally add a comment about your experience
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <label className="block text-sm font-medium text-gray-700 mb-3">
+                                        Rate Your Experience *
+                                      </label>
+                                      <div className="flex items-center gap-2">
+                                        {[1, 2, 3, 4, 5].map((star) => (
+                                          <button
+                                            key={star}
+                                            type="button"
+                                            onClick={() => {
+                                              setRating(star);
+                                              setReceiptValidationError('');
+                                            }}
+                                            onMouseEnter={() => setHoveredRating(star)}
+                                            onMouseLeave={() => setHoveredRating(0)}
+                                            className="focus:outline-none transition-transform hover:scale-110"
+                                          >
+                                            <svg
+                                              className={`w-10 h-10 ${
+                                                star <= (hoveredRating || rating)
+                                                  ? 'text-yellow-400 fill-current'
+                                                  : 'text-gray-300'
+                                              }`}
+                                              fill="currentColor"
+                                              viewBox="0 0 20 20"
+                                            >
+                                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                            </svg>
+                                          </button>
+                                        ))}
+                                        {rating > 0 && (
+                                          <span className="ml-2 text-sm text-gray-600">
+                                            {rating} {rating === 1 ? 'star' : 'stars'}
+                                          </span>
+                                        )}
+                                      </div>
+                                      {receiptValidationError && (
+                                        <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                          </svg>
+                                          {receiptValidationError}
                                         </p>
+                                      )}
+                                    </div>
+
+                                    <div className="border-t border-gray-200 pt-4">
+                                      <h6 className="text-sm font-medium text-gray-700 mb-3">Optional: Additional Feedback</h6>
+                                      <div>
+                                        <label className="block text-sm font-medium text-gray-600 mb-2">
+                                          Comment (optional)
+                                        </label>
+                                        <textarea
+                                          value={proofComment}
+                                          onChange={(e) => setProofComment(e.target.value)}
+                                          placeholder="Share your thoughts about the program..."
+                                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                                          rows="3"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    {rating > 0 && (
+                                      <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                                        <div className="flex items-center gap-2">
+                                          <span className="text-blue-800 font-medium">Ready to complete</span>
+                                          {selectedFile && (
+                                            <span className="text-blue-600 text-sm">+ {selectedFile.name}</span>
+                                          )}
+                                        </div>
+                                        <button
+                                          onClick={handleUploadProof}
+                                          disabled={uploadLoading}
+                                          className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors"
+                                        >
+                                          {uploadLoading ? 'Submitting...' : 'Complete Program'}
+                                        </button>
                                       </div>
                                     )}
                                   </div>
-                                ) : (
+                                </>
+                              ) : (
+                                // Monetary: Receipt Number Validation
+                                <>
+                                  <h5 className={`font-semibold mb-3 ${
+                                    trackingModal.data.beneficiary.is_paid 
+                                      ? 'text-green-800' 
+                                      : 'text-gray-800'
+                                  }`}>
+                                    Complete Program - Enter Receipt Number
+                                    {trackingModal.data.beneficiary.is_paid && (
+                                      <span className="ml-2 text-green-600">✓ Ready to complete</span>
+                                    )}
+                                  </h5>
                                   <div className="space-y-4">
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                       <div className="flex items-start gap-3">
@@ -986,12 +1107,12 @@ const EnrolledPrograms = () => {
                                       </div>
                                     )}
                                   </div>
-                                )}
-                              </div>
+                                </>
+                              )}
                             </div>
                           )}
 
-                          {/* Receipt Validation Success Message */}
+                          {/* Completion Success Message */}
                           {stage.stage === 3 && trackingModal.data.beneficiary.receipt_number_validated && (
                             <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
                               <div className="flex items-center gap-3">
@@ -999,11 +1120,32 @@ const EnrolledPrograms = () => {
                                   <span className="text-green-600 text-lg">✓</span>
                                 </div>
                                 <div>
-                                  <h5 className="text-green-800 font-semibold">Receipt Number Validated Successfully!</h5>
-                                  <p className="text-green-700 text-sm">
-                                    Your receipt number <strong>{trackingModal.data.beneficiary.receipt_number}</strong> has been validated. 
-                                    The program is now completed.
-                                  </p>
+                                  {isNonMonetaryProgram() ? (
+                                    <>
+                                      <h5 className="text-green-800 font-semibold">Program Completed Successfully!</h5>
+                                      <p className="text-green-700 text-sm">
+                                        Thank you for your feedback! {trackingModal.data.beneficiary.program_rating && (
+                                          <>You rated this program <strong>{trackingModal.data.beneficiary.program_rating} {trackingModal.data.beneficiary.program_rating === 1 ? 'star' : 'stars'}</strong>.</>
+                                        )}
+                                        The program is now completed.
+                                      </p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <h5 className="text-green-800 font-semibold">Receipt Number Validated Successfully!</h5>
+                                      <p className="text-green-700 text-sm">
+                                        Your receipt number <strong>{trackingModal.data.beneficiary.receipt_number}</strong> has been validated. 
+                                        The program is now completed.
+                                      </p>
+                                    </>
+                                  )}
+                                  {trackingModal.data.beneficiary.proof_comment && (
+                                    <div className="mt-2 p-2 bg-white rounded border">
+                                      <p className="text-sm text-gray-600">
+                                        <strong>Your Comment:</strong> {trackingModal.data.beneficiary.proof_comment}
+                                      </p>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             </div>
