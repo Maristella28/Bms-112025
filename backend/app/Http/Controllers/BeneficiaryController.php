@@ -31,10 +31,11 @@ class BeneficiaryController extends Controller
             ]);
         }
 
-        // Get benefits for this resident that are visible and approved
+        // Get benefits for this resident that are visible and approved or completed
+        // Include both 'Approved' and 'Completed' status so residents can see their program history
         $benefits = Beneficiary::with(['program'])
             ->where('visible_to_resident', true)
-            ->where('status', 'Approved')
+            ->whereIn('status', ['Approved', 'Completed'])
             ->where(function($query) use ($resident) {
                 // More flexible name matching
                 $firstName = trim($resident->first_name);

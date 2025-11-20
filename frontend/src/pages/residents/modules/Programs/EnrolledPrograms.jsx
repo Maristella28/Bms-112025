@@ -27,7 +27,17 @@ const EnrolledPrograms = () => {
       try {
         setLoading(true);
         const response = await axiosInstance.get('/my-benefits');
-        setBeneficiaries(response.data?.beneficiaries || []);
+        const beneficiaries = response.data?.beneficiaries || [];
+        setBeneficiaries(beneficiaries);
+        
+        // Debug: Log status values to help identify the issue
+        console.log('Fetched beneficiaries:', beneficiaries.length);
+        console.log('Beneficiary statuses:', beneficiaries.map(b => ({ 
+          id: b.id, 
+          name: b.name, 
+          status: b.status,
+          statusType: typeof b.status 
+        })));
       } catch (err) {
         console.error('Error fetching enrolled programs:', err);
         setError(err.response?.data?.message || 'Failed to load enrolled programs');
@@ -527,12 +537,34 @@ const EnrolledPrograms = () => {
           {/* Programs List */}
           {!loading && !error && beneficiaries.length > 0 && (() => {
             // Separate active and completed programs
-            const activePrograms = beneficiaries.filter(b => 
-              b.status !== 'Completed' && b.status !== 'completed'
-            );
-            const completedPrograms = beneficiaries.filter(b => 
-              b.status === 'Completed' || b.status === 'completed'
-            );
+            // A program is considered completed if status is 'Completed' (case-insensitive)
+            const activePrograms = beneficiaries.filter(b => {
+              const status = (b.status || '').toString().trim();
+              const isCompleted = status.toLowerCase() === 'completed';
+              return !isCompleted;
+            });
+            const completedPrograms = beneficiaries.filter(b => {
+              const status = (b.status || '').toString().trim();
+              const isCompleted = status.toLowerCase() === 'completed';
+              // Debug logging (can be removed later)
+              if (isCompleted) {
+                console.log('Found completed program:', { 
+                  id: b.id, 
+                  name: b.name, 
+                  status: status,
+                  originalStatus: b.status 
+                });
+              }
+              return isCompleted;
+            });
+            
+            // Debug: Log summary
+            console.log('Program Summary:', {
+              total: beneficiaries.length,
+              active: activePrograms.length,
+              completed: completedPrograms.length,
+              allStatuses: [...new Set(beneficiaries.map(b => b.status))]
+            });
 
             return (
             <div className="space-y-8">
