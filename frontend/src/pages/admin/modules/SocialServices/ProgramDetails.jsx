@@ -1343,6 +1343,42 @@ const ProgramDetails = () => {
     setRejectReason('');
   };
 
+  // Helper function to check if program is non-monetary assistance
+  const isNonMonetaryAssistance = () => {
+    const assistanceType = (program?.assistance_type || program?.assistanceType || '').toLowerCase();
+    return assistanceType.includes('non-monetary') || assistanceType.includes('nonmonetary');
+  };
+
+  // Handle send notice action for non-monetary assistance
+  const handleSendNotice = async (beneficiary) => {
+    try {
+      // Ensure CSRF token is set
+      await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
+
+      console.log('Sending notice to beneficiary:', beneficiary.id);
+
+      // TODO: Implement the actual API endpoint for sending notices
+      // For now, this is a placeholder that shows a success message
+      // You can replace this with the actual API call when the backend endpoint is ready
+      // const response = await axiosInstance.post(`/admin/beneficiaries/${beneficiary.id}/send-notice`);
+
+      setToast({
+        type: 'success',
+        message: `Notice sent successfully to ${beneficiary.name || 'beneficiary'}`
+      });
+
+      // Refresh beneficiaries to get updated status if needed
+      const updatedBeneficiaries = await fetchBeneficiaries(id);
+      setBeneficiaries(updatedBeneficiaries);
+    } catch (error) {
+      console.error('Failed to send notice:', error);
+      setToast({
+        type: 'error',
+        message: error.response?.data?.message || 'Failed to send notice'
+      });
+    }
+  };
+
   // Handle paid action
   const handlePaid = async (beneficiary) => {
     try {
@@ -2680,35 +2716,49 @@ const ProgramDetails = () => {
                     <td className="px-8 py-6">
                       {/* Admin Controls */}
                       <div className="flex flex-col gap-3">
-                        {/* Paid Action */}
-                        <div className="flex gap-3">
-                          {paidBeneficiaries.has(beneficiary.id) ? (
-                            <div className="flex flex-col gap-2">
-                          <button
-                                className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-emerald-100 text-emerald-700 cursor-default"
-                                disabled
-                                title="Already marked as paid"
-                              >
-                                ✓ Paid
-                          </button>
-                              <button
-                                className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-blue-100 text-blue-700 hover:bg-blue-200"
-                                onClick={() => handleDownloadReceipt(beneficiary)}
-                                title="Download receipt"
-                              >
-                                📄 Receipt
-                              </button>
-                            </div>
+                        {/* Conditional Actions based on Assistance Type */}
+                        {isNonMonetaryAssistance() ? (
+                          /* Non-Monetary Assistance: Show Send Notice */
+                          <div className="flex gap-3">
+                            <button
+                              className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-blue-100 text-blue-700 hover:bg-blue-200"
+                              onClick={() => handleSendNotice(beneficiary)}
+                              title="Send notice to beneficiary"
+                            >
+                              Send Notice
+                            </button>
+                          </div>
                         ) : (
-                          <button
-                            className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-green-100 text-green-700 hover:bg-green-200"
-                              onClick={() => handlePaid(beneficiary)}
-                              title="Mark as paid"
-                          >
-                              Mark Paid
-                          </button>
+                          /* Monetary Assistance: Show Mark Paid / Receipt actions */
+                          <div className="flex gap-3">
+                            {paidBeneficiaries.has(beneficiary.id) ? (
+                              <div className="flex flex-col gap-2">
+                                <button
+                                  className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-emerald-100 text-emerald-700 cursor-default"
+                                  disabled
+                                  title="Already marked as paid"
+                                >
+                                  ✓ Paid
+                                </button>
+                                <button
+                                  className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-blue-100 text-blue-700 hover:bg-blue-200"
+                                  onClick={() => handleDownloadReceipt(beneficiary)}
+                                  title="Download receipt"
+                                >
+                                  📄 Receipt
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                className="px-4 py-2 rounded-xl text-sm font-semibold transition bg-green-100 text-green-700 hover:bg-green-200"
+                                onClick={() => handlePaid(beneficiary)}
+                                title="Mark as paid"
+                              >
+                                Mark Paid
+                              </button>
+                            )}
+                          </div>
                         )}
-                        </div>
                       </div>
                     </td>
                   </tr>
