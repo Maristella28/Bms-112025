@@ -4197,6 +4197,11 @@ const SocialServices = () => {
                       
                       setProgramFormLoading(true);
                       try {
+                        // Ensure payout_date is null (not empty string) for MySQL datetime column
+                        const payoutDateValue = (programForm.payoutDate && typeof programForm.payoutDate === 'string' && programForm.payoutDate.trim() !== '') 
+                          ? programForm.payoutDate 
+                          : null;
+                        
                         const data = {
                           name: programForm.name,
                           description: programForm.description,
@@ -4207,7 +4212,7 @@ const SocialServices = () => {
                           assistance_type: programForm.assistanceType,
                           amount: programForm.assistanceType === 'Monetary Assistance' ? programForm.amount : (programForm.amount || '0'),
                           max_beneficiaries: programForm.maxBeneficiaries,
-                          payout_date: programForm.payoutDate || null,
+                          payout_date: payoutDateValue,
                         };
 
                         // Check if payout date has changed for email notification
