@@ -50,7 +50,20 @@ class ProgramAnnouncementController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $validator = Validator::make($request->all(), [
+        // Convert is_urgent to proper boolean before validation
+        $requestData = $request->all();
+        if (isset($requestData['is_urgent'])) {
+            // Convert various formats to boolean
+            $isUrgent = $requestData['is_urgent'];
+            if (is_string($isUrgent)) {
+                $isUrgent = in_array(strtolower($isUrgent), ['1', 'true', 'on', 'yes'], true);
+            }
+            $requestData['is_urgent'] = (bool) $isUrgent;
+        } else {
+            $requestData['is_urgent'] = false;
+        }
+        
+        $validator = Validator::make($requestData, [
             'program_id' => 'required|exists:programs,id',
             'title' => 'required|string|max:255',
             'content' => 'required|string',
@@ -69,7 +82,7 @@ class ProgramAnnouncementController extends Controller
             ], 422);
         }
 
-        $announcement = ProgramAnnouncement::create($request->all());
+        $announcement = ProgramAnnouncement::create($requestData);
         
         // Log program announcement creation
         $user = Auth::user();
@@ -123,7 +136,18 @@ class ProgramAnnouncementController extends Controller
             ], 404);
         }
 
-        $validator = Validator::make($request->all(), [
+        // Convert is_urgent to proper boolean before validation
+        $requestData = $request->all();
+        if (isset($requestData['is_urgent'])) {
+            // Convert various formats to boolean
+            $isUrgent = $requestData['is_urgent'];
+            if (is_string($isUrgent)) {
+                $isUrgent = in_array(strtolower($isUrgent), ['1', 'true', 'on', 'yes'], true);
+            }
+            $requestData['is_urgent'] = (bool) $isUrgent;
+        }
+        
+        $validator = Validator::make($requestData, [
             'title' => 'sometimes|required|string|max:255',
             'content' => 'sometimes|required|string',
             'status' => 'sometimes|in:draft,published,archived',
@@ -140,9 +164,9 @@ class ProgramAnnouncementController extends Controller
                 'errors' => $validator->errors()
             ], 422);
         }
-
+        
         $oldValues = $announcement->getOriginal();
-        $announcement->update($request->all());
+        $announcement->update($requestData);
         
         // Log program announcement update
         $user = Auth::user();

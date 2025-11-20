@@ -3402,11 +3402,15 @@ const ProgramDetails = () => {
                 <form onSubmit={(e) => {
                   e.preventDefault();
                   const formData = new FormData(e.target);
+                  
+                  // Ensure is_urgent is always a boolean (not undefined or empty string)
+                  const isUrgent = formData.get('is_urgent') === 'on' || formData.get('is_urgent') === true;
+                  
                   const data = {
                     title: formData.get('title'),
                     content: formData.get('content'),
                     status: formData.get('status'),
-                    is_urgent: formData.get('is_urgent') === 'on',
+                    is_urgent: isUrgent, // Always boolean: true or false
                     expires_at: formData.get('expires_at') || null,
                     target_audience: formData.get('target_audience') ? formData.get('target_audience').split(',') : ['all']
                   };
