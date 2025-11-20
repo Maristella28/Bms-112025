@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axiosInstance from '../../../../utils/axiosConfig';
 import Navbares from '../../../../components/Navbares';
 import Sidebares from '../../../../components/Sidebares';
 
 const EnrolledPrograms = () => {
   const navigate = useNavigate();
-  const { programId } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [error, setError] = useState(null);
@@ -26,36 +26,7 @@ const EnrolledPrograms = () => {
       try {
         setLoading(true);
         const response = await axiosInstance.get('/my-benefits');
-        const fetchedBeneficiaries = response.data?.beneficiaries || [];
-        setBeneficiaries(fetchedBeneficiaries);
-        
-        // If programId is provided in URL, find the beneficiary and open tracking modal
-        if (programId) {
-          const programIdNum = parseInt(programId);
-          const beneficiary = fetchedBeneficiaries.find(b => 
-            b.program_id === programIdNum || b.program?.id === programIdNum
-          );
-          
-          if (beneficiary && beneficiary.id) {
-            // Automatically open tracking modal for this program
-            try {
-              setTrackingLoading(true);
-              const trackingResponse = await axiosInstance.get(`/my-benefits/${beneficiary.id}/track`);
-              setTrackingModal({
-                isOpen: true,
-                data: trackingResponse.data.data
-              });
-            } catch (err) {
-              console.error('Error fetching tracking data:', err);
-              setError(err.response?.data?.message || 'Failed to load tracking information');
-            } finally {
-              setTrackingLoading(false);
-            }
-          } else {
-            console.warn('No beneficiary found for program ID:', programId);
-            setError('Program not found in your enrolled programs');
-          }
-        }
+        setBeneficiaries(response.data?.beneficiaries || []);
       } catch (err) {
         console.error('Error fetching enrolled programs:', err);
         setError(err.response?.data?.message || 'Failed to load enrolled programs');
@@ -85,7 +56,54 @@ const EnrolledPrograms = () => {
     return () => {
       clearInterval(notificationInterval);
     };
-  }, [programId]);
+  }, []);
+
+  // Auto-open tracking modal when program and beneficiary params are present
+  useEffect(() => {
+    const programId = searchParams.get('program');
+    const beneficiaryId = searchParams.get('beneficiary');
+    
+    if (beneficiaryId && beneficiaries.length > 0 && !trackingModal.isOpen) {
+      // Find the beneficiary - prioritize exact ID match, then program match
+      let beneficiary = beneficiaries.find(b => String(b.id) === String(beneficiaryId));
+      
+      if (!beneficiary && programId) {
+        beneficiary = beneficiaries.find(b => String(b.program_id) === String(programId));
+      }
+      
+      if (beneficiary) {
+        // Auto-open tracking modal
+        const openTracking = async () => {
+          try {
+            setTrackingLoading(true);
+            const response = await axiosInstance.get(`/my-benefits/${beneficiary.id}/track`);
+            setTrackingModal({
+              isOpen: true,
+              data: response.data.data
+            });
+            
+            // Clean up URL params after opening (with delay to ensure modal opens)
+            setTimeout(() => {
+              const newParams = new URLSearchParams(searchParams);
+              newParams.delete('program');
+              newParams.delete('beneficiary');
+              if (newParams.toString() !== searchParams.toString()) {
+                setSearchParams(newParams, { replace: true });
+              }
+            }, 500);
+          } catch (err) {
+            console.error('Error fetching tracking data:', err);
+            setError(err.response?.data?.message || 'Failed to load tracking information');
+          } finally {
+            setTrackingLoading(false);
+          }
+        };
+        
+        openTracking();
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, beneficiaries.length, trackingModal.isOpen]);
 
   const handleBackToBenefits = () => {
     navigate('/residents/myBenefits');
@@ -117,6 +135,67 @@ const EnrolledPrograms = () => {
     setProofComment('');
     setReceiptNumber('');
     setReceiptValidationError('');
+  };
+
+  const handleNotificationClick = async (notification) => {
+    try {
+      // Mark as read if not already read
+      if (!notification.is_read) {
+        await axiosInstance.post(`/notifications/${notification.id}/read`);
+        setNotifications(prev => 
+          prev.map(notif => 
+            notif.id === notification.id 
+              ? { ...notif, is_read: true, read_at: new Date().toISOString() }
+              : notif
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+      }
+
+      // Get redirect path from notification data
+      const redirectPath = notification.redirect_path || notification.data?.redirect_path;
+      
+      if (redirectPath) {
+        // If redirect path includes query params, navigate to it
+        if (redirectPath.includes('?')) {
+          navigate(redirectPath);
+        } else {
+          // Otherwise, check if we have program_id and beneficiary_id in data
+          const programId = notification.data?.program_id || notification.program_id;
+          const beneficiaryId = notification.data?.beneficiary_id;
+          
+          if (beneficiaryId) {
+            // Navigate to enrolled programs with params
+            navigate(`/residents/enrolledPrograms?program=${programId}&beneficiary=${beneficiaryId}`);
+          } else if (programId) {
+            // Just program ID, find beneficiary
+            const beneficiary = beneficiaries.find(b => String(b.program_id) === String(programId));
+            if (beneficiary) {
+              navigate(`/residents/enrolledPrograms?program=${programId}&beneficiary=${beneficiary.id}`);
+            } else {
+              navigate(redirectPath);
+            }
+          } else {
+            navigate(redirectPath);
+          }
+        }
+      } else {
+        // Fallback: check if notification has program_id and beneficiary_id
+        const programId = notification.data?.program_id || notification.program_id;
+        const beneficiaryId = notification.data?.beneficiary_id;
+        
+        if (beneficiaryId) {
+          navigate(`/residents/enrolledPrograms?program=${programId}&beneficiary=${beneficiaryId}`);
+        } else if (programId) {
+          const beneficiary = beneficiaries.find(b => String(b.program_id) === String(programId));
+          if (beneficiary) {
+            navigate(`/residents/enrolledPrograms?program=${programId}&beneficiary=${beneficiary.id}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error handling notification click:', err);
+    }
   };
 
   const handleMarkNotificationAsRead = async (notificationId) => {
@@ -581,18 +660,7 @@ const EnrolledPrograms = () => {
                           ? 'bg-gray-50 border-gray-200' 
                           : 'bg-blue-50 border-blue-200'
                       }`}
-                      onClick={async () => {
-                        // Mark as read if not already read
-                        if (!notification.is_read) {
-                          await handleMarkNotificationAsRead(notification.id);
-                        }
-                        
-                        // Get redirect path and navigate
-                        const redirectPath = notification.redirect_path || notification.data?.action_url || notification.data?.redirect_path;
-                        if (redirectPath) {
-                          navigate(redirectPath);
-                        }
-                      }}
+                      onClick={() => handleNotificationClick(notification)}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-3 h-3 rounded-full mt-2 ${

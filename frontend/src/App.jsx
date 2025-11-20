@@ -323,9 +323,6 @@ function App() {
           <Route path="/admin/social-services" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><AdminRouteWrapper>{withSuspense(<SocialServices />)}</AdminRouteWrapper></RoleBasedRoute>} />
           <Route path="/admin/social-services/program/:id" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><AdminRouteWrapper>{withSuspense(<ProgramDetails />)}</AdminRouteWrapper></RoleBasedRoute>} />
           
-          {/* Resident-specific program tracking route */}
-          <Route path="/residents/enrolledPrograms/:programId" element={<ProtectedRoute><RoleBasedRoute allowedRoles={['resident', 'residents']}>{withSuspense(<EnrolledPrograms />)}</RoleBasedRoute></ProtectedRoute>} />
-          
           {/* Blotter Module Routes */}
           <Route path="/admin/modules/Blotter/BlotterRequest" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><AdminRouteWrapper>{withSuspense(<BlotterRequest />)}</AdminRouteWrapper></RoleBasedRoute>} />
           <Route path="/admin/modules/Blotter/NewComplaint" element={<RoleBasedRoute allowedRoles={['admin', 'staff']}><AdminRouteWrapper>{withSuspense(<NewComplaint />)}</AdminRouteWrapper></RoleBasedRoute>} />

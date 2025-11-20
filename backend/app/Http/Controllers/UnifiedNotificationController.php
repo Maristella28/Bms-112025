@@ -55,12 +55,17 @@ class UnifiedNotificationController extends Controller
                 ->limit(50)
                 ->get()
                 ->map(function ($notification) {
-                    $notificationData = [
-                        'program_id' => $notification->program_id,
-                        'program_name' => $notification->program?->name,
-                        'program_type' => $notification->program?->type,
-                        'message' => $notification->message, // Preserve original message
-                    ];
+                    // Merge notification data with program info
+                    $notificationData = array_merge(
+                        $notification->data ?? [],
+                        [
+                            'program_id' => $notification->program_id,
+                            'program_name' => $notification->program?->name,
+                            'program_type' => $notification->program?->type,
+                            'message' => $notification->message, // Preserve original message
+                            'type' => $notification->type,
+                        ]
+                    );
                     
                     // Use custom title if available, otherwise generate category-based title
                     $title = $notification->title ?? $this->getNotificationTitle($notificationData);
@@ -68,10 +73,8 @@ class UnifiedNotificationController extends Controller
                     // Always use getNotificationMessage to enhance with details (it handles custom messages)
                     $message = $this->getNotificationMessage($notificationData, $notification->created_at);
                     
-                    // Priority: Use redirect_path from model if available, otherwise calculate from data
-                    $redirectPath = $notification->redirect_path 
-                        ? $notification->redirect_path 
-                        : $this->getRedirectPath($notificationData, 'custom_notification');
+                    // Get redirect path - prioritize redirect_path from data, then calculate
+                    $redirectPath = $notificationData['redirect_path'] ?? $this->getRedirectPath($notificationData, 'custom_notification');
                     
                     return [
                         'id' => $notification->id,
@@ -672,20 +675,43 @@ class UnifiedNotificationController extends Controller
             return $path;
         }
 
-        // 10. Custom notifications (program-related) - redirect to my benefits
+        // 10. Custom notifications (program-related) - redirect to enrolled programs
         if ($notificationType === 'custom_notification') {
+            // Check for program_notice type specifically
+            if (isset($data['type']) && $data['type'] === 'program_notice') {
+                $programId = $data['program_id'] ?? null;
+                $beneficiaryId = $data['beneficiary_id'] ?? null;
+                
+                if ($beneficiaryId && $programId) {
+                    return '/residents/enrolledPrograms?program=' . $programId . '&beneficiary=' . $beneficiaryId;
+                } elseif ($programId) {
+                    return '/residents/enrolledPrograms?program=' . $programId;
+                }
+            }
+            
+            // For other custom notifications with program_id, redirect to enrolled programs
             if (isset($data['program_id'])) {
                 $programId = $data['program_id'];
-                return '/residents/myBenefits?program=' . $programId;
+                $beneficiaryId = $data['beneficiary_id'] ?? null;
+                
+                if ($beneficiaryId) {
+                    return '/residents/enrolledPrograms?program=' . $programId . '&beneficiary=' . $beneficiaryId;
+                }
+                return '/residents/enrolledPrograms?program=' . $programId;
             }
             // Default for custom notifications
-            return '/residents/myBenefits';
+            return '/residents/enrolledPrograms';
         }
 
         // 11. Generic program notifications
         if (isset($data['program_id']) && !isset($data['program_announcement_id'])) {
             $programId = $data['program_id'];
-            return '/residents/dashboard?section=programs&program=' . $programId . '#program-' . $programId;
+            $beneficiaryId = $data['beneficiary_id'] ?? null;
+            
+            if ($beneficiaryId) {
+                return '/residents/enrolledPrograms?program=' . $programId . '&beneficiary=' . $beneficiaryId;
+            }
+            return '/residents/enrolledPrograms?program=' . $programId;
         }
 
         // Default: no redirect (return null)
