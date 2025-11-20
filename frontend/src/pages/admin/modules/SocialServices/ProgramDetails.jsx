@@ -1616,16 +1616,33 @@ const ProgramDetails = () => {
     }
   };
 
+  // Helper function to convert ISO date to datetime-local format
+  const toInputDateTime = (dateString) => {
+    if (!dateString) return '';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      // Format as YYYY-MM-DDTHH:mm for datetime-local input
+      return date.toISOString().slice(0, 16);
+    } catch (e) {
+      return '';
+    }
+  };
+
   // Handle opening payout date modal
   const handleOpenPayoutDateModal = () => {
     if (payoutDate) {
-      const payout = new Date(payoutDate);
-      const dateStr = payout.toISOString().split('T')[0];
-      const timeStr = payout.toTimeString().slice(0, 5);
-      setPayoutDateForm({
-        date: dateStr,
-        time: timeStr
-      });
+      // Convert to datetime-local format
+      const dateTimeValue = toInputDateTime(payoutDate);
+      if (dateTimeValue) {
+        const [dateStr, timeStr] = dateTimeValue.split('T');
+        setPayoutDateForm({
+          date: dateStr || '',
+          time: timeStr || ''
+        });
+      } else {
+        setPayoutDateForm({ date: '', time: '' });
+      }
     } else {
       setPayoutDateForm({
         date: '',
@@ -1643,26 +1660,40 @@ const ProgramDetails = () => {
     try {
       await fetch('/sanctum/csrf-cookie', { credentials: 'include' });
       
-      if (!payoutDateForm.date || !payoutDateForm.time) {
+      // Get the datetime-local value from the form
+      const dateTimeValue = payoutDateForm.date && payoutDateForm.time 
+        ? `${payoutDateForm.date}T${payoutDateForm.time}` 
+        : '';
+      
+      if (!dateTimeValue) {
         setToast({
           type: 'error',
-          message: 'Please provide both date and time'
+          message: 'Please provide a payout date and time'
         });
         setPayoutDateLoading(false);
         setTimeout(() => setToast(null), 3000);
         return;
       }
 
-      // Combine date and time into ISO string
-      // Ensure we're creating a valid datetime
-      const dateTimeString = `${payoutDateForm.date}T${payoutDateForm.time}`;
-      const payoutDateTimeObj = new Date(dateTimeString);
+      // Convert to ISO string for backend
+      const payoutDateTimeObj = new Date(dateTimeValue);
       
       // Validate the date is valid
       if (isNaN(payoutDateTimeObj.getTime())) {
         setToast({
           type: 'error',
           message: 'Invalid date or time format'
+        });
+        setPayoutDateLoading(false);
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+      
+      // Validate date is not in the past
+      if (payoutDateTimeObj < new Date()) {
+        setToast({
+          type: 'error',
+          message: 'Payout date cannot be set to a past date/time'
         });
         setPayoutDateLoading(false);
         setTimeout(() => setToast(null), 3000);
@@ -1701,9 +1732,12 @@ const ProgramDetails = () => {
       setPayoutDateForm({ date: '', time: '' });
     } catch (err) {
       console.error('Failed to update payout date:', err);
+      const errorMessage = err.response?.data?.message || 
+                         err.response?.data?.errors?.payout_date?.[0] ||
+                         'Failed to update payout date and time';
       setToast({
         type: 'error',
-        message: err.response?.data?.message || 'Failed to update payout date and time'
+        message: errorMessage
       });
     } finally {
       setPayoutDateLoading(false);
@@ -4317,59 +4351,66 @@ const ProgramDetails = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Payout Date <span className="text-red-500">*</span>
-                    </label>
+                <div>
+                  <label className="block text-sm font-medium text-blue-700 mb-1">Payout Date & Time (Optional)</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
-                      type="date"
-                      required
-                      value={payoutDateForm.date}
-                      onChange={(e) => setPayoutDateForm(f => ({ ...f, date: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                      min={new Date().toISOString().split('T')[0]}
+                      type="datetime-local"
+                      value={(() => {
+                        if (payoutDateForm.date && payoutDateForm.time) {
+                          return `${payoutDateForm.date}T${payoutDateForm.time}`;
+                        }
+                        return '';
+                      })()}
+                      onChange={e => {
+                        const value = e.target.value;
+                        if (value) {
+                          // Convert to separate date and time
+                          const date = new Date(value);
+                          const dateStr = date.toISOString().split('T')[0];
+                          const timeStr = date.toTimeString().slice(0, 5);
+                          setPayoutDateForm({
+                            date: dateStr,
+                            time: timeStr
+                          });
+                        } else {
+                          setPayoutDateForm({ date: '', time: '' });
+                        }
+                      }}
+                      min={new Date().toISOString().slice(0, 16)} // Prevent past dates
+                      className="flex-1 border border-blue-200 rounded-lg px-3 py-2 sm:py-3 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all duration-300 bg-white shadow-sm text-blue-900 hover:shadow-md focus:shadow-lg text-sm sm:text-base"
                     />
+                    {payoutDateForm.date && payoutDateForm.time && (
+                      <button
+                        type="button"
+                        onClick={() => setPayoutDateForm({ date: '', time: '' })}
+                        className="px-3 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition-all duration-300 shadow-sm hover:shadow-md focus:outline-none focus:ring-2 focus:ring-red-300"
+                        title="Remove payout date"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Payout Time <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="time"
-                      required
-                      value={payoutDateForm.time}
-                      onChange={(e) => setPayoutDateForm(f => ({ ...f, time: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                    />
-                  </div>
-
-                  {payoutDateForm.date && payoutDateForm.time && (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
-                      <p className="text-sm font-medium text-emerald-800 mb-1">Preview:</p>
-                      <p className="text-emerald-700 font-semibold">
-                        {(() => {
-                          try {
-                            const date = new Date(`${payoutDateForm.date}T${payoutDateForm.time}`);
-                            const dateStr = date.toLocaleDateString('en-US', { 
-                              year: 'numeric', 
-                              month: 'long', 
-                              day: 'numeric' 
-                            });
-                            const timeStr = date.toLocaleTimeString('en-US', { 
-                              hour: '2-digit', 
-                              minute: '2-digit',
-                              hour12: true 
-                            });
-                            return `${dateStr} at ${timeStr}`;
-                          } catch (e) {
-                            return 'Invalid date/time';
-                          }
-                        })()}
-                      </p>
-                    </div>
-                  )}
+                  <p className="text-xs text-blue-600 mt-1">
+                    Set a specific date and time for benefit payouts. Cannot be set to a past date/time.
+                  </p>
+                  {payoutDateForm.date && payoutDateForm.time && (() => {
+                    const selectedDate = new Date(`${payoutDateForm.date}T${payoutDateForm.time}`);
+                    const now = new Date();
+                    if (selectedDate < now) {
+                      return (
+                        <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                          Payout date cannot be in the past
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
 
                 <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
