@@ -20,6 +20,7 @@ const EnrolledPrograms = () => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
 
   useEffect(() => {
     const fetchEnrolledPrograms = async () => {
@@ -524,7 +525,16 @@ const EnrolledPrograms = () => {
           )}
 
           {/* Programs List */}
-          {!loading && !error && beneficiaries.length > 0 && (
+          {!loading && !error && beneficiaries.length > 0 && (() => {
+            // Separate active and completed programs
+            const activePrograms = beneficiaries.filter(b => 
+              b.status !== 'Completed' && b.status !== 'completed'
+            );
+            const completedPrograms = beneficiaries.filter(b => 
+              b.status === 'Completed' || b.status === 'completed'
+            );
+
+            return (
             <div className="space-y-8">
               {/* Summary Stats */}
               <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-8">
@@ -532,11 +542,15 @@ const EnrolledPrograms = () => {
                   <h2 className="text-2xl font-bold text-gray-800">Program Overview</h2>
                   <div className="flex items-center gap-4">
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-green-600">{beneficiaries.length}</div>
-                      <div className="text-sm text-gray-600">Total Programs</div>
+                      <div className="text-3xl font-bold text-green-600">{activePrograms.length}</div>
+                      <div className="text-sm text-gray-600">Active Programs</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-blue-600">
+                      <div className="text-3xl font-bold text-blue-600">{completedPrograms.length}</div>
+                      <div className="text-sm text-gray-600">Completed Programs</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-3xl font-bold text-purple-600">
                         ₱{beneficiaries.reduce((sum, b) => sum + (Number(b.amount) || 0), 0).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-600">Total Benefits</div>
@@ -545,9 +559,48 @@ const EnrolledPrograms = () => {
                 </div>
               </div>
 
-              {/* Programs Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {beneficiaries.map((beneficiary, index) => (
+              {/* Tab Navigation */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setActiveTab('active')}
+                    className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      activeTab === 'active'
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Active Programs ({activePrograms.length})
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('completed')}
+                    className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
+                      activeTab === 'completed'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                      </svg>
+                      Completed Programs ({completedPrograms.length})
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Active Programs Grid */}
+              {activeTab === 'active' && (
+                <>
+                  {activePrograms.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {activePrograms.map((beneficiary, index) => (
                   <div 
                     key={beneficiary.id} 
                     className="group bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 hover:border-green-300"
@@ -659,8 +712,126 @@ const EnrolledPrograms = () => {
                       </button>
                     </div>
                   </div>
-                ))}
-              </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-12 text-center">
+                      <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-10 h-10 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">No Active Programs</h3>
+                      <p className="text-gray-600">You don't have any active programs at the moment.</p>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Completed Programs Table */}
+              {activeTab === 'completed' && (
+                <>
+                  {completedPrograms.length > 0 ? (
+                    <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 overflow-hidden">
+                      <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-green-50 to-emerald-50">
+                        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                          <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                          </svg>
+                          Completed Programs History
+                        </h2>
+                        <p className="text-gray-600 mt-1">View all your successfully completed programs</p>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full">
+                          <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Program Name</th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Beneficiary Type</th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Assistance Type</th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Amount</th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Application Date</th>
+                              <th className="px-6 py-4 text-left text-sm font-semibold text-gray-700">Status</th>
+                              <th className="px-6 py-4 text-center text-sm font-semibold text-gray-700">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {completedPrograms.map((beneficiary) => (
+                              <tr key={beneficiary.id} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                                      <span className="text-white text-sm">✓</span>
+                                    </div>
+                                    <div>
+                                      <div className="font-semibold text-gray-800">{beneficiary.name}</div>
+                                      {beneficiary.remarks && (
+                                        <div className="text-xs text-gray-500 mt-1">{beneficiary.remarks.substring(0, 50)}...</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-medium">
+                                    {beneficiary.beneficiary_type || beneficiary.beneficiaryType}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
+                                    {beneficiary.assistance_type || beneficiary.assistanceType}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="text-green-600 font-bold text-lg">
+                                    ₱{(beneficiary.amount || 0).toLocaleString()}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4 text-gray-600">
+                                  {beneficiary.application_date 
+                                    ? new Date(beneficiary.application_date).toLocaleDateString('en-US', {
+                                        year: 'numeric',
+                                        month: 'short',
+                                        day: 'numeric'
+                                      })
+                                    : 'N/A'}
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="bg-emerald-100 text-emerald-800 px-3 py-1 rounded-full text-xs font-bold">
+                                    ✓ Completed
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <button
+                                    onClick={() => handleTrackProgram(beneficiary.id)}
+                                    disabled={trackingLoading}
+                                    className="mx-auto flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-lg font-medium transition-all duration-300 shadow-sm hover:shadow-md disabled:shadow-none"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View Details
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-12 text-center">
+                      <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-2">No Completed Programs</h3>
+                      <p className="text-gray-600">You haven't completed any programs yet. Complete your active programs to see them here.</p>
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Quick Actions */}
               <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/60 p-8">
@@ -1145,18 +1316,43 @@ const EnrolledPrograms = () => {
 
                           {/* Receipt Validation / Received Success Message */}
                           {stage.stage === 3 && trackingModal.data.beneficiary.receipt_number_validated && (
-                            <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                            <div className={`mt-4 p-4 rounded-lg border-2 ${
+                              trackingModal.data.beneficiary.status === 'Completed' 
+                                ? 'bg-green-50 border-green-200'
+                                : 'bg-blue-50 border-blue-200'
+                            }`}>
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                                  <span className="text-green-600 text-lg">✓</span>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                                  trackingModal.data.beneficiary.status === 'Completed'
+                                    ? 'bg-green-100'
+                                    : 'bg-blue-100'
+                                }`}>
+                                  <span className={`text-lg ${
+                                    trackingModal.data.beneficiary.status === 'Completed'
+                                      ? 'text-green-600'
+                                      : 'text-blue-600'
+                                  }`}>
+                                    {trackingModal.data.beneficiary.status === 'Completed' ? '✓' : '⏳'}
+                                  </span>
                                 </div>
                                 <div>
                                   {isNonMonetaryProgram() ? (
                                     <>
-                                      <h5 className="text-green-800 font-semibold">Program Marked as Received Successfully!</h5>
-                                      <p className="text-green-700 text-sm">
-                                        You have confirmed receipt of the non-monetary assistance. The program is now completed.
-                                      </p>
+                                      {trackingModal.data.beneficiary.status === 'Completed' ? (
+                                        <>
+                                          <h5 className="text-green-800 font-semibold">Program Completed Successfully!</h5>
+                                          <p className="text-green-700 text-sm">
+                                            Your receipt of the non-monetary assistance has been verified by the admin. The program is now completed.
+                                          </p>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <h5 className="text-blue-800 font-semibold">Program Marked as Received!</h5>
+                                          <p className="text-blue-700 text-sm">
+                                            You have confirmed receipt of the non-monetary assistance. Waiting for admin verification to complete the program.
+                                          </p>
+                                        </>
+                                      )}
                                     </>
                                   ) : (
                                     <>
