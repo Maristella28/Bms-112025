@@ -295,6 +295,10 @@ class ActivityLogController extends Controller
         try {
             $user = Auth::user();
 
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
             if ($user->role !== 'admin' && $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
@@ -312,28 +316,19 @@ class ActivityLogController extends Controller
                 ->toArray();
 
             // Get residents with user accounts that are NOT in the active list
-            $inactiveResidents = Resident::with(['user'])
+            $inactiveResidentsQuery = Resident::with(['user'])
                 ->whereNotNull('user_id');
             
             // Only apply whereNotIn if there are active users, otherwise all residents are inactive
             if (!empty($activeUserIds)) {
-                $inactiveResidents = $inactiveResidents->whereNotIn('user_id', $activeUserIds);
+                $inactiveResidentsQuery = $inactiveResidentsQuery->whereNotIn('user_id', $activeUserIds);
             }
-            
-            $inactiveResidents = $inactiveResidents
-                ->select('residents.*')
-                ->selectRaw('(
-                    SELECT MAX(created_at) 
-                    FROM activity_logs 
-                    WHERE user_id = residents.user_id 
-                    AND action IN ("login", "Resident.Profile.Updated", "Resident.Updated")
-                ) as last_activity_date');
 
             // Get total count before pagination
-            $total = $inactiveResidents->count();
+            $total = $inactiveResidentsQuery->count();
 
             // Apply pagination and get results
-            $inactiveResidents = $inactiveResidents->skip(($page - 1) * $perPage)
+            $inactiveResidents = $inactiveResidentsQuery->skip(($page - 1) * $perPage)
                 ->take($perPage)
                 ->get()
                 ->map(function($resident) use ($oneYearAgo) {
@@ -469,6 +464,10 @@ class ActivityLogController extends Controller
         try {
             $user = Auth::user();
 
+            if (!$user) {
+                return response()->json(['message' => 'Unauthorized'], 401);
+            }
+
             if ($user->role !== 'admin' && $user->role !== 'staff') {
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
@@ -479,7 +478,9 @@ class ActivityLogController extends Controller
                 'flagged_count' => $count,
             ]);
         } catch (\Exception $e) {
-            \Log::error('Error fetching flagged residents count: ' . $e->getMessage());
+            \Log::error('Error fetching flagged residents count: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'message' => 'Error fetching flagged residents count',
                 'error' => $e->getMessage()
