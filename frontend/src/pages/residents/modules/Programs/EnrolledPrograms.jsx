@@ -581,7 +581,18 @@ const EnrolledPrograms = () => {
                           ? 'bg-gray-50 border-gray-200' 
                           : 'bg-blue-50 border-blue-200'
                       }`}
-                      onClick={() => !notification.is_read && handleMarkNotificationAsRead(notification.id)}
+                      onClick={async () => {
+                        // Mark as read if not already read
+                        if (!notification.is_read) {
+                          await handleMarkNotificationAsRead(notification.id);
+                        }
+                        
+                        // Get redirect path and navigate
+                        const redirectPath = notification.redirect_path || notification.data?.action_url || notification.data?.redirect_path;
+                        if (redirectPath) {
+                          navigate(redirectPath);
+                        }
+                      }}
                     >
                       <div className="flex items-start gap-3">
                         <div className={`w-3 h-3 rounded-full mt-2 ${

@@ -83,7 +83,39 @@
             <p>You have received a notice regarding the program: <strong>{{ $programName }}</strong></p>
             
             <div class="message-box">
-                <p style="white-space: pre-wrap;">{{ $noticeMessage }}</p>
+            In @SocialServices.jsx, when admin or staff sends a notice, this notice should appear in the resident’s notification panel.
+
+When the resident clicks the notice notification, for example:
+
+Notice: Barangay Feeding Program 2025
+Dear Juan Dela Cruz, This is to inform you about your non-monetary assistance program. 
+Please check your notifications for more details. Thank you.
+Date: 11/20/2025, 3:55:46 PM
+
+
+the system must automatically redirect the resident to the specific enrolled program page.
+
+Example:
+
+Notification refers to Program ID = 12
+
+Redirect to route:
+/residents/enrolledPrograms/12
+
+On that page, open and display the full Program Tracking Details, such as:
+
+Program Name: Barangay Feeding Program 2025
+Status: Ongoing
+Schedule, requirements, and other tracking details...
+
+
+Ensure that:
+
+Each notice is linked to its correct program_id.
+
+Clicking the notification triggers a direct navigation to the resident’s Program Tracking Page.
+
+The page automatically loads the specific program information (name, status, updates, etc.).                <p style="white-space: pre-wrap;">{{ $noticeMessage }}</p>
             </div>
             
             <p style="margin-top: 20px;">

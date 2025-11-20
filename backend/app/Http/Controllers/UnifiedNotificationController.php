@@ -68,6 +68,11 @@ class UnifiedNotificationController extends Controller
                     // Always use getNotificationMessage to enhance with details (it handles custom messages)
                     $message = $this->getNotificationMessage($notificationData, $notification->created_at);
                     
+                    // Priority: Use redirect_path from model if available, otherwise calculate from data
+                    $redirectPath = $notification->redirect_path 
+                        ? $notification->redirect_path 
+                        : $this->getRedirectPath($notificationData, 'custom_notification');
+                    
                     return [
                         'id' => $notification->id,
                         'type' => 'custom_notification',
@@ -78,7 +83,7 @@ class UnifiedNotificationController extends Controller
                         'read_at' => $notification->read_at,
                         'created_at' => $notification->created_at,
                         'updated_at' => $notification->updated_at,
-                        'redirect_path' => $this->getRedirectPath($notificationData, 'custom_notification'),
+                        'redirect_path' => $redirectPath,
                     ];
                 });
 
