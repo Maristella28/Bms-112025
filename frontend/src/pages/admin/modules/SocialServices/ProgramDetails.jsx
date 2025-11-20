@@ -89,6 +89,7 @@ const ProgramDetails = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [showAnnouncementModal, setShowAnnouncementModal] = useState(false);
   const [editingAnnouncement, setEditingAnnouncement] = useState(null);
+  const [announcementLoading, setAnnouncementLoading] = useState(false);
   
   // Application forms state
   const [applicationForms, setApplicationForms] = useState([]);
@@ -940,6 +941,7 @@ const ProgramDetails = () => {
 
   // Announcement handlers
   const createAnnouncement = async (announcementData) => {
+    setAnnouncementLoading(true);
     try {
       const response = await axiosInstance.post('/admin/program-announcements', {
         ...announcementData,
@@ -947,11 +949,24 @@ const ProgramDetails = () => {
       });
 
       setAnnouncements([...announcements, response.data.data]);
-      setToast({ type: 'success', message: 'Announcement created successfully!' });
+      setToast({ 
+        type: 'success', 
+        message: response.data.message || 'Announcement created successfully!' 
+      });
       setShowAnnouncementModal(false);
+      setEditingAnnouncement(null);
+      
+      // Auto-dismiss toast after 5 seconds
+      setTimeout(() => setToast(null), 5000);
     } catch (error) {
       console.error('Error creating announcement:', error);
-      setToast({ type: 'error', message: error.response?.data?.message || 'Failed to create announcement' });
+      setToast({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to create announcement' 
+      });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setAnnouncementLoading(false);
     }
   };
 
@@ -961,16 +976,29 @@ const ProgramDetails = () => {
   };
 
   const updateAnnouncement = async (announcementData) => {
+    setAnnouncementLoading(true);
     try {
       const response = await axiosInstance.put(`/admin/program-announcements/${editingAnnouncement.id}`, announcementData);
 
       setAnnouncements(announcements.map(a => a.id === editingAnnouncement.id ? response.data.data : a));
       setEditingAnnouncement(null);
       setShowAnnouncementModal(false);
-      setToast({ type: 'success', message: 'Announcement updated successfully!' });
+      setToast({ 
+        type: 'success', 
+        message: response.data.message || 'Announcement updated successfully!' 
+      });
+      
+      // Auto-dismiss toast after 5 seconds
+      setTimeout(() => setToast(null), 5000);
     } catch (error) {
       console.error('Error updating announcement:', error);
-      setToast({ type: 'error', message: error.response?.data?.message || 'Failed to update announcement' });
+      setToast({ 
+        type: 'error', 
+        message: error.response?.data?.message || 'Failed to update announcement' 
+      });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setAnnouncementLoading(false);
     }
   };
 
@@ -3494,15 +3522,31 @@ const ProgramDetails = () => {
                         setShowAnnouncementModal(false);
                         setEditingAnnouncement(null);
                       }}
-                      className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-all duration-300"
+                      disabled={announcementLoading}
+                      className={`px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-xl font-medium transition-all duration-300 ${
+                        announcementLoading ? 'opacity-60 cursor-not-allowed' : ''
+                      }`}
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-300"
+                      disabled={announcementLoading}
+                      className={`px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl font-medium transition-all duration-300 flex items-center gap-2 ${
+                        announcementLoading ? 'opacity-60 cursor-not-allowed' : ''
+                      }`}
                     >
-                      {editingAnnouncement ? 'Update Announcement' : 'Create Announcement'}
+                      {announcementLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          {editingAnnouncement ? 'Updating...' : 'Creating...'}
+                        </>
+                      ) : (
+                        editingAnnouncement ? 'Update Announcement' : 'Create Announcement'
+                      )}
                     </button>
                   </div>
                 </form>
@@ -3929,17 +3973,32 @@ const ProgramDetails = () => {
           </div>
         )}
 
-        {/* Toast */}
+        {/* Toast Notification */}
         {toast && (
-          <div className={`fixed right-6 bottom-6 z-50 p-4 rounded-lg shadow-lg transition-all duration-300 ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          <div className={`fixed right-6 bottom-6 z-[9999] p-5 rounded-xl shadow-2xl transition-all duration-300 transform animate-slide-in-right ${
+            toast.type === 'success' 
+              ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white border-2 border-green-400' 
+              : 'bg-gradient-to-r from-red-500 to-rose-600 text-white border-2 border-red-400'
+          } min-w-[320px] max-w-md`}>
             <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-            <div className="font-semibold">{toast.type === 'success' ? 'Success' : 'Error'}</div>
-            <div className="text-sm">{toast.message}</div>
+              <div className="flex items-start gap-3 flex-1">
+                {toast.type === 'success' ? (
+                  <svg className="w-6 h-6 text-white flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-white flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                )}
+                <div className="flex-1">
+                  <div className="font-bold text-base mb-1">{toast.type === 'success' ? '✓ Success' : '✕ Error'}</div>
+                  <div className="text-sm leading-relaxed">{toast.message}</div>
+                </div>
               </div>
               <button
                 onClick={() => setToast(null)}
-                className="text-white hover:text-gray-200 transition-colors flex-shrink-0"
+                className="text-white hover:text-gray-200 transition-colors flex-shrink-0 p-1 rounded-full hover:bg-white/20"
                 aria-label="Close"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

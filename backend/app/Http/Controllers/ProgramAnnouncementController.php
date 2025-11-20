@@ -87,17 +87,45 @@ class ProgramAnnouncementController extends Controller
         // Log program announcement creation
         $user = Auth::user();
         if ($user) {
-            ActivityLogService::logCreated($announcement, $request);
+            try {
+                ActivityLogService::logCreated($announcement, $request);
+            } catch (\Exception $e) {
+                Log::warning('Failed to log announcement creation', ['error' => $e->getMessage()]);
+            }
         }
 
         // Send notifications to all residents when announcement is published
-        if (($request->input('status') ?? 'draft') === 'published') {
-            $this->notifyAllResidents($announcement);
+        // Since ProgramAnnouncementCreatedNotification implements ShouldQueue,
+        // notifications will be queued automatically and won't block the response
+        $isPublished = ($requestData['status'] ?? 'draft') === 'published';
+        if ($isPublished) {
+            // Dispatch notifications to run after response is sent
+            // This prevents blocking the request while sending emails
+            $announcementId = $announcement->id;
+            app()->terminating(function() use ($announcementId) {
+                try {
+                    $announcement = ProgramAnnouncement::find($announcementId);
+                    if ($announcement) {
+                        $controller = new self();
+                        $reflection = new \ReflectionClass($controller);
+                        $method = $reflection->getMethod('notifyAllResidents');
+                        $method->setAccessible(true);
+                        $method->invoke($controller, $announcement);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to send notifications after response', [
+                        'announcement_id' => $announcementId,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            });
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Announcement created successfully',
+            'message' => $isPublished 
+                ? 'Announcement created and published successfully! Notifications are being sent in the background.' 
+                : 'Announcement created successfully!',
             'data' => $announcement->load('program')
         ], 201);
     }
