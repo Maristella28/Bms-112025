@@ -679,8 +679,18 @@ const SocialServices = () => {
       try {
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
-        return date.toISOString().slice(0, 16);
+        
+        // Get local date components (not UTC) to avoid timezone issues
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        // Format for datetime-local input (YYYY-MM-DDTHH:MM) in local timezone
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
       } catch (error) {
+        console.error('Error formatting date for input:', error);
         return '';
       }
     };
@@ -711,15 +721,59 @@ const SocialServices = () => {
 
   const toInputDateTime = (dateString) => {
     if (!dateString) return '';
-    // Handles ISO format like "2024-01-01T00:00:00.000000Z"
-    const date = new Date(dateString);
-    // Format for datetime-local input (YYYY-MM-DDTHH:MM)
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    try {
+      // Handles ISO format like "2024-01-01T00:00:00.000000Z" or "2024-01-01T00:00:00+08:00"
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return '';
+      
+      // Get local date components (not UTC) to avoid timezone issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      
+      // Format for datetime-local input (YYYY-MM-DDTHH:MM) in local timezone
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch (e) {
+      console.error('Error converting date to datetime-local:', e);
+      return '';
+    }
+  };
+
+  // Helper function to format date with timezone offset (for backend)
+  const formatDateWithTimezone = (dateValue) => {
+    if (!dateValue) return null;
+    
+    try {
+      // dateValue is a datetime-local string like "2025-11-20T18:07"
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return null;
+      
+      // Get local time components to preserve the timezone
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      const seconds = String(date.getSeconds()).padStart(2, '0');
+      
+      // Get timezone offset in format +HH:MM or -HH:MM
+      // getTimezoneOffset() returns offset in minutes, negative for timezones ahead of UTC
+      // For Philippines (UTC+8), it returns -480, so we need to flip the sign
+      const offset = date.getTimezoneOffset();
+      const offsetHours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, '0');
+      const offsetMinutes = String(Math.abs(offset) % 60).padStart(2, '0');
+      const offsetSign = offset <= 0 ? '+' : '-'; // Flip sign: negative offset means ahead of UTC (positive in ISO format)
+      
+      // Format as YYYY-MM-DDTHH:mm:ss+HH:MM (with timezone offset)
+      // This ensures the backend interprets it correctly in the local timezone
+      // For Philippines (UTC+8), this will be like: 2025-11-20T18:07:00+08:00
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}${offsetSign}${offsetHours}:${offsetMinutes}`;
+    } catch (e) {
+      console.error('Error formatting date with timezone:', e);
+      return null;
+    }
   };
 
   // --- Enhanced Analytics calculations ---
@@ -3939,9 +3993,9 @@ const SocialServices = () => {
                           onChange={e => {
                             const value = e.target.value;
                             if (value) {
-                              // Convert to ISO format for backend
-                              const date = new Date(value);
-                              setProgramForm(f => ({ ...f, payoutDate: date.toISOString() }));
+                              // Store the datetime-local value directly (will be formatted with timezone when submitting)
+                              // This preserves the local time without UTC conversion
+                              setProgramForm(f => ({ ...f, payoutDate: value }));
                             } else {
                               setProgramForm(f => ({ ...f, payoutDate: '' }));
                             }
@@ -4197,10 +4251,10 @@ const SocialServices = () => {
                       
                       setProgramFormLoading(true);
                       try {
-                        // Ensure payout_date is null (not empty string) for MySQL datetime column
-                        // Only include payout_date in data if it has a valid value, otherwise omit it
-                        const payoutDateValue = (programForm.payoutDate && typeof programForm.payoutDate === 'string' && programForm.payoutDate.trim() !== '') 
-                          ? programForm.payoutDate 
+                        // Format payout_date with timezone offset to preserve local time
+                        // programForm.payoutDate is a datetime-local string like "2025-11-20T18:07"
+                        const payoutDateValue = programForm.payoutDate && typeof programForm.payoutDate === 'string' && programForm.payoutDate.trim() !== ''
+                          ? formatDateWithTimezone(programForm.payoutDate)
                           : null;
                         
                         const data = {
