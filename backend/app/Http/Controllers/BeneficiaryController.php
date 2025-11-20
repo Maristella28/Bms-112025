@@ -805,6 +805,7 @@ class BeneficiaryController extends Controller
                             'program_name' => $beneficiary->program->name ?? 'Program',
                             'sent_at' => now()->toISOString()
                         ],
+                        'redirect_path' => '/residents/enrolledPrograms/' . $validated['program_id'],
                         'is_read' => false
                     ]);
                     $notificationsCreated++;

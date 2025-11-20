@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axiosInstance from '../../../../utils/axiosConfig';
 import Navbares from '../../../../components/Navbares';
 import Sidebares from '../../../../components/Sidebares';
 
 const EnrolledPrograms = () => {
   const navigate = useNavigate();
+  const { programId } = useParams();
   const [loading, setLoading] = useState(true);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [error, setError] = useState(null);
@@ -25,7 +26,36 @@ const EnrolledPrograms = () => {
       try {
         setLoading(true);
         const response = await axiosInstance.get('/my-benefits');
-        setBeneficiaries(response.data?.beneficiaries || []);
+        const fetchedBeneficiaries = response.data?.beneficiaries || [];
+        setBeneficiaries(fetchedBeneficiaries);
+        
+        // If programId is provided in URL, find the beneficiary and open tracking modal
+        if (programId) {
+          const programIdNum = parseInt(programId);
+          const beneficiary = fetchedBeneficiaries.find(b => 
+            b.program_id === programIdNum || b.program?.id === programIdNum
+          );
+          
+          if (beneficiary && beneficiary.id) {
+            // Automatically open tracking modal for this program
+            try {
+              setTrackingLoading(true);
+              const trackingResponse = await axiosInstance.get(`/my-benefits/${beneficiary.id}/track`);
+              setTrackingModal({
+                isOpen: true,
+                data: trackingResponse.data.data
+              });
+            } catch (err) {
+              console.error('Error fetching tracking data:', err);
+              setError(err.response?.data?.message || 'Failed to load tracking information');
+            } finally {
+              setTrackingLoading(false);
+            }
+          } else {
+            console.warn('No beneficiary found for program ID:', programId);
+            setError('Program not found in your enrolled programs');
+          }
+        }
       } catch (err) {
         console.error('Error fetching enrolled programs:', err);
         setError(err.response?.data?.message || 'Failed to load enrolled programs');
@@ -55,7 +85,7 @@ const EnrolledPrograms = () => {
     return () => {
       clearInterval(notificationInterval);
     };
-  }, []);
+  }, [programId]);
 
   const handleBackToBenefits = () => {
     navigate('/residents/myBenefits');

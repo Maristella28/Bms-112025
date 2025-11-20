@@ -17,7 +17,8 @@ class ResidentNotification extends Model
         'message',
         'data',
         'is_read',
-        'read_at'
+        'read_at',
+        'redirect_path'
     ];
 
     protected $casts = [
