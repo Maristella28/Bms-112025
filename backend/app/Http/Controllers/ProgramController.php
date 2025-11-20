@@ -119,57 +119,77 @@ class ProgramController extends Controller
 
     public function update(Request $request, $id)
     {
-        $program = Program::findOrFail($id);
-        
-        // Convert empty string to null for payout_date before validation
-        if ($request->has('payout_date') && $request->input('payout_date') === '') {
-            $request->merge(['payout_date' => null]);
-        }
-        
-        $data = $request->validate([
-            'name' => 'sometimes|required|string',
-            'description' => 'nullable|string',
-            'start_date' => 'nullable|date',
-            'end_date' => 'nullable|date',
-            'beneficiary_type' => 'nullable|string',
-            'assistance_type' => 'nullable|string',
-            'amount' => 'nullable|numeric',
-            'max_beneficiaries' => 'nullable|integer|min:1',
-            'status' => 'required|string',
-            'payout_date' => 'nullable|date|after:now',
-        ]);
-        
-        // Ensure payout_date is null if empty (double check)
-        if (isset($data['payout_date']) && ($data['payout_date'] === '' || $data['payout_date'] === null)) {
-            $data['payout_date'] = null;
-        }
-        
-        \Log::info('Program update data:', $data);
-        $oldValues = $program->getOriginal();
-        $program->update($data);
-        \Log::info('Program updated:', $program->toArray());
-        
-        // Log program update activity
-        $user = Auth::user();
-        if ($user) {
-            $userRole = $user->role;
-            $description = $userRole === 'admin'
-                ? "Admin {$user->name} updated program: {$program->name}"
-                : ($userRole === 'staff'
-                    ? "Staff {$user->name} updated program: {$program->name}"
-                    : "Program updated: {$program->name}");
+        try {
+            $program = Program::findOrFail($id);
             
-            ActivityLogService::log(
-                'program_updated',
-                $program,
-                $oldValues,
-                $program->toArray(),
-                $description,
-                $request
-            );
+            // Convert empty string to null for payout_date before validation
+            if ($request->has('payout_date') && $request->input('payout_date') === '') {
+                $request->merge(['payout_date' => null]);
+            }
+            
+            $data = $request->validate([
+                'name' => 'sometimes|required|string',
+                'description' => 'nullable|string',
+                'start_date' => 'nullable|date',
+                'end_date' => 'nullable|date',
+                'beneficiary_type' => 'nullable|string',
+                'assistance_type' => 'nullable|string',
+                'amount' => 'nullable|numeric',
+                'max_beneficiaries' => 'nullable|integer|min:1',
+                'status' => 'required|string',
+                'payout_date' => 'nullable|date', // Removed 'after:now' to allow editing existing dates
+            ]);
+            
+            // Ensure payout_date is null if empty (double check)
+            if (isset($data['payout_date']) && ($data['payout_date'] === '' || $data['payout_date'] === null)) {
+                $data['payout_date'] = null;
+            }
+            
+            \Log::info('Program update data:', $data);
+            $oldValues = $program->getOriginal();
+            $program->update($data);
+            \Log::info('Program updated:', $program->toArray());
+            
+            // Log program update activity
+            $user = Auth::user();
+            if ($user) {
+                $userRole = $user->role;
+                $description = $userRole === 'admin'
+                    ? "Admin {$user->name} updated program: {$program->name}"
+                    : ($userRole === 'staff'
+                        ? "Staff {$user->name} updated program: {$program->name}"
+                        : "Program updated: {$program->name}");
+                
+                ActivityLogService::log(
+                    'program_updated',
+                    $program,
+                    $oldValues,
+                    $program->toArray(),
+                    $description,
+                    $request
+                );
+            }
+            
+            return response()->json($program);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Program update validation error:', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            \Log::error('Program update error:', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            return response()->json([
+                'message' => 'Failed to update program: ' . $e->getMessage()
+            ], 500);
         }
-        
-        return response()->json($program);
     }
 
     public function destroy($id)

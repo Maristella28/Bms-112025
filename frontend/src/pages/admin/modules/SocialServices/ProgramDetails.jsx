@@ -1654,18 +1654,33 @@ const ProgramDetails = () => {
       }
 
       // Combine date and time into ISO string
-      const payoutDateTime = new Date(`${payoutDateForm.date}T${payoutDateForm.time}`).toISOString();
+      // Ensure we're creating a valid datetime
+      const dateTimeString = `${payoutDateForm.date}T${payoutDateForm.time}`;
+      const payoutDateTimeObj = new Date(dateTimeString);
+      
+      // Validate the date is valid
+      if (isNaN(payoutDateTimeObj.getTime())) {
+        setToast({
+          type: 'error',
+          message: 'Invalid date or time format'
+        });
+        setPayoutDateLoading(false);
+        setTimeout(() => setToast(null), 3000);
+        return;
+      }
+      
+      const payoutDateTime = payoutDateTimeObj.toISOString();
       
       const programUpdateData = {
-        name: program.name || program.name,
+        name: program.name || '',
         description: program.description || '',
-        start_date: program.start_date || program.startDate || '',
-        end_date: program.end_date || program.endDate || '',
-        status: program.status || '',
+        start_date: program.start_date || program.startDate || null,
+        end_date: program.end_date || program.endDate || null,
+        status: program.status || 'ongoing',
         beneficiary_type: program.beneficiary_type || program.beneficiaryType || '',
         assistance_type: program.assistance_type || program.assistanceType || '',
-        amount: program.amount || '',
-        max_beneficiaries: program.max_beneficiaries || program.maxBeneficiaries || '',
+        amount: program.amount || null,
+        max_beneficiaries: program.max_beneficiaries || program.maxBeneficiaries || null,
         payout_date: payoutDateTime,
       };
       
