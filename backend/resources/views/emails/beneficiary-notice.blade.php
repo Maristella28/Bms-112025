@@ -83,7 +83,7 @@
             <p>You have received a notice regarding the program: <strong>{{ $programName }}</strong></p>
             
             <div class="message-box">
-                <p style="white-space: pre-wrap;">{{ $message }}</p>
+                <p style="white-space: pre-wrap;">{{ $noticeMessage }}</p>
             </div>
             
             <p style="margin-top: 20px;">

@@ -865,10 +865,11 @@ class BeneficiaryController extends Controller
                         ]);
 
                         // Use the same pattern as ProgramController for consistency
+                        // Note: Using 'noticeMessage' instead of 'message' to avoid conflict with Laravel's $message variable
                         Mail::send('emails.beneficiary-notice', [
                             'beneficiaryName' => $beneficiary->name,
                             'programName' => $beneficiary->program->name ?? 'Program',
-                            'message' => $validated['message'],
+                            'noticeMessage' => $validated['message'],
                             'programId' => $validated['program_id']
                         ], function ($message) use ($email, $beneficiary) {
                             $programName = $beneficiary->program->name ?? 'Program Notice';
