@@ -57,6 +57,8 @@ backup_database() {
     log "Starting database backup..."
     
     # Create database backup with compression
+    # Note: --add-drop-table is used but AUTO_INCREMENT values may be lost during restore
+    # The post-restore migration will fix AUTO_INCREMENT issues automatically
     if mysqldump --single-transaction \
                  --routines \
                  --triggers \
@@ -67,6 +69,7 @@ backup_database() {
                  --extended-insert \
                  --quick \
                  --lock-tables=false \
+                 --complete-insert \
                  -h "$DB_HOST" \
                  -u "$DB_USER" \
                  -p"$DB_PASS" \

@@ -704,6 +704,23 @@ class BackupController extends Controller
                         // Re-enable foreign key checks
                         DB::statement('SET FOREIGN_KEY_CHECKS=1;');
                         
+                        // Reset SQL_MODE to proper values
+                        DB::statement("SET SQL_MODE='STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'");
+                        
+                        // Run post-restore fix migration to fix AUTO_INCREMENT and other issues
+                        try {
+                            \Log::info('Running post-restore database fix...');
+                            Artisan::call('migrate', [
+                                '--path' => 'database/migrations/2025_11_20_200000_fix_database_after_restore.php',
+                                '--force' => true
+                            ]);
+                            $output[] = "Post-restore database fix completed";
+                            \Log::info('Post-restore database fix completed successfully');
+                        } catch (\Exception $fixError) {
+                            \Log::warning('Post-restore fix migration failed: ' . $fixError->getMessage());
+                            $output[] = "Warning: Post-restore fix had issues: " . $fixError->getMessage();
+                        }
+                        
                         // Clean up temp file
                         if ($tempSqlFile && file_exists($tempSqlFile)) {
                             unlink($tempSqlFile);
